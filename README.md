@@ -100,3 +100,7 @@ pwsh ./build.ps1                      # 테스트 → 빌드 → dist\AIUsageBar
 ```
 
 필요: .NET SDK 8 이상 (net48 대상 빌드), Inno Setup 6.
+
+## 라이선스
+
+[MIT](LICENSE)
