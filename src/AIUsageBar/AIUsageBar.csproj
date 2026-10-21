@@ -7,7 +7,7 @@
     <Nullable>disable</Nullable>
     <AssemblyName>AIUsageBar</AssemblyName>
     <RootNamespace>AIUsageBar</RootNamespace>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <Product>AI Usage Bar</Product>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <Prefer32Bit>false</Prefer32Bit>
@@ -17,6 +17,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <Reference Include="System.Management" />
     <Reference Include="System.Net.Http" />
   </ItemGroup>
   <ItemGroup>

@@ -169,9 +169,8 @@ namespace AIUsageBar.UI
             foreach (var row in s.Rows)
             {
                 var r = row;
-                var sub = r.Window == "메모리" && !string.IsNullOrEmpty(r.ResetText)
-                    ? "메모리 " + r.ResetText.Split('/')[0].Trim() + " GB" : r.Window;
-                minis.Add((gr, box) => MiniRingModule(gr, box, r.Remaining, _st.StateColor(r.Severity, _st.PcAccent), r.Percent, sub));
+                minis.Add((gr, box) => MiniRingModule(gr, box, r.Remaining, _st.StateColor(r.Severity, _st.PcAccent), r.Percent, r.Window,
+                    _st.StateColor(r.LabelSeverity, _st.Secondary)));
             }
             var temp = s.Extras.FirstOrDefault(e => e.label == "CPU 온도");
             if (temp.label == null) temp = s.Extras.FirstOrDefault(e => e.label == "GPU 온도");
@@ -214,12 +213,12 @@ namespace AIUsageBar.UI
             return y;
         }
 
-        private void MiniRingModule(Graphics g, RectangleF box, double used, Color arc, string value, string label)
+        private void MiniRingModule(Graphics g, RectangleF box, double used, Color arc, string value, string label, Color labelColor)
         {
             var cx = box.X + box.Width / 2;
             var ring = new RectangleF(cx - S(MiniRing) / 2, box.Y + S(ModPadY), S(MiniRing), S(MiniRing));
             AppleStyle.Ring(g, ring, S(MiniStroke), used, arc, _st.Track);
-            MiniLabels(g, box, ring.Bottom, value, label);
+            MiniLabels(g, box, ring.Bottom, value, label, labelColor);
         }
 
         private void MiniTempModule(Graphics g, RectangleF box, string value, string label, double celsius)
@@ -228,10 +227,10 @@ namespace AIUsageBar.UI
             var color = celsius >= 90 ? _st.Critical : celsius >= 80 ? _st.Warning : _st.Label;
             var size = Paint.Measure(value, _big);
             DrawText(g, value, _big, color, area.X + (area.Width - size.Width) / 2, area.Y + (area.Height - size.Height) / 2);
-            MiniLabels(g, box, area.Bottom, "", label.Replace(" 온도", "") + " 온도");
+            MiniLabels(g, box, area.Bottom, "", label.Replace(" 온도", "") + " 온도", _st.Secondary);
         }
 
-        private void MiniLabels(Graphics g, RectangleF box, float y, string value, string label)
+        private void MiniLabels(Graphics g, RectangleF box, float y, string value, string label, Color labelColor)
         {
             var cx = box.X + box.Width / 2;
             y += S(6);
@@ -239,7 +238,7 @@ namespace AIUsageBar.UI
             if (!string.IsNullOrEmpty(value)) DrawText(g, value, _miniValue, _st.Label, cx - vs.Width / 2, y);
             y += vs.Height;
             var ls = Paint.Measure(label, _small);
-            DrawText(g, label, _small, _st.Secondary, cx - ls.Width / 2, y);
+            DrawText(g, label, _small, labelColor, cx - ls.Width / 2, y);
         }
 
         private static double TempValue(string text)
@@ -256,6 +255,7 @@ namespace AIUsageBar.UI
                 case "CX": return "X";
                 case "GK": return "G";
                 case "CU": return "Cu";
+                case "GM": return "Ge";
                 default: return string.IsNullOrEmpty(tag) ? "?" : tag.Substring(0, 1);
             }
         }

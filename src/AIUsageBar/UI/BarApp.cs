@@ -14,7 +14,7 @@ namespace AIUsageBar.UI
     /// </summary>
     internal sealed class BarApp : ApplicationContext
     {
-        private static readonly string[] Order = { "CL", "CX", "GK", "CU" };
+        private static readonly string[] Order = { "CL", "CX", "GK", "CU", "GM" };
 
         private readonly Control _ui = new Control();
         private readonly Dictionary<string, ServiceUsage> _data = new Dictionary<string, ServiceUsage>();
@@ -127,6 +127,7 @@ namespace AIUsageBar.UI
             if (_settings.ShowCodex) list.Add(_data["CX"]);
             if (_settings.ShowGrok) list.Add(_data["GK"]);
             if (_settings.ShowCursor) list.Add(_data["CU"]);
+            if (_settings.ShowGemini) list.Add(_data["GM"]);
             return list;
         }
 
@@ -160,6 +161,7 @@ namespace AIUsageBar.UI
             GrokProvider grok = null;
             if (_settings.ShowGrok) providers.Add(grok = new GrokProvider(null, () => _settings.GrokWeeklyBudgetUsd));
             if (_settings.ShowCursor) providers.Add(new CursorProvider());
+            if (_settings.ShowGemini) providers.Add(new GeminiProvider());
             _scheduler = new Scheduler(providers, () => _settings.RefreshSeconds);
             _scheduler.Updated += u => _ui.BeginInvoke((Action)(() => OnUpdated(u)));
             if (grok != null) _scheduler.Watch(grok.SessionsDir, "usage.json", "GK");
@@ -201,24 +203,26 @@ namespace AIUsageBar.UI
                 _dpiScale = (dpi == 0 ? 96 : dpi) / 96f; // cards follow the display scale, not the fitted bar size
                 var reset = _settings.ShowResetOnBar;
                 var names = true;
+                var all = true;
                 if (tb.Horizontal && tb.IconsLeft != int.MaxValue)
                 {
                     // Never run into the centered Start button / app icons; re-fitted every 2 s as icons move.
                     var items = VisibleItems();
                     var pc = SystemOrNull();
                     var maxWidth = tb.IconsLeft - tb.Bounds.X - TaskbarAttacher.Margin * 3;
-                    var fit = BarLayout.Fit(dot, reset, (d, r, n) =>
+                    var fit = BarLayout.Fit(dot, reset, (d, r, n, a) =>
                     {
-                        using (var probe = new BarRenderer(d) { ShowReset = r, ShowNames = n }) return probe.MeasureBar(items, pc).Width;
+                        using (var probe = new BarRenderer(d) { ShowReset = r, ShowNames = n, ShowAllWindows = a }) return probe.MeasureBar(items, pc).Width;
                     }, maxWidth, BarRenderer.Level100);
                     dot = fit.Level;
                     reset = fit.Reset;
                     names = fit.Names;
+                    all = fit.AllWindows;
                 }
-                if (_bar.Renderer.Dot != dot || _light != light || _bar.Renderer.ShowReset != reset || _bar.Renderer.ShowNames != names)
+                if (_bar.Renderer.Dot != dot || _light != light || _bar.Renderer.ShowReset != reset || _bar.Renderer.ShowNames != names || _bar.Renderer.ShowAllWindows != all)
                 {
                     var old = _bar.Renderer;
-                    _bar.Renderer = new BarRenderer(dot) { Light = light, ShowReset = reset, ShowNames = names };
+                    _bar.Renderer = new BarRenderer(dot) { Light = light, ShowReset = reset, ShowNames = names, ShowAllWindows = all };
                     old.Dispose();
                     _light = light;
                 }
@@ -382,7 +386,7 @@ namespace AIUsageBar.UI
                 }
                 if (!_settings.ShowSystem) _pc = null;
                 else if (_pc == null) SampleSystem();
-                if (old.ShowClaude != _settings.ShowClaude || old.ShowCodex != _settings.ShowCodex || old.ShowGrok != _settings.ShowGrok || old.ShowCursor != _settings.ShowCursor)
+                if (old.ShowClaude != _settings.ShowClaude || old.ShowCodex != _settings.ShowCodex || old.ShowGrok != _settings.ShowGrok || old.ShowCursor != _settings.ShowCursor || old.ShowGemini != _settings.ShowGemini)
                     StartScheduler();
                 else if (old.GrokWeeklyBudgetUsd != _settings.GrokWeeklyBudgetUsd)
                     _ = _scheduler.RefreshNowAsync();

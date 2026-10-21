@@ -12,7 +12,8 @@ namespace AIUsageBar.Tests
 {
     public class SystemTests
     {
-        private static SystemSnapshot Snap(double? cpu = 12, double mem = 32, double? gpuTemp = 43, double? cpuTemp = null) => new SystemSnapshot
+        private static SystemSnapshot Snap(double? cpu = 12, double mem = 32, double? gpuTemp = 43, double? cpuTemp = null,
+            double? gpuUtil = 2, double? vramUsed = 6.1, double? vramTotal = 16) => new SystemSnapshot
         {
             CpuPercent = cpu,
             MemPercent = mem,
@@ -20,8 +21,10 @@ namespace AIUsageBar.Tests
             MemTotalGb = 125.4,
             GpuTempC = gpuTemp,
             GpuName = "NVIDIA GeForce RTX 5080",
-            GpuUtilPercent = 2,
+            GpuUtilPercent = gpuUtil,
             CpuTempC = cpuTemp,
+            VramUsedGb = vramUsed,
+            VramTotalGb = vramTotal,
         };
 
         [Fact]
@@ -47,17 +50,45 @@ namespace AIUsageBar.Tests
             Assert.Equal("사용 중 · 메모리", s.Rows[1].Caption);
             Assert.Equal("40.1 / 125.4 GB", s.Rows[1].ResetText);
             Assert.Equal(Severity.Normal, s.Rows[1].Severity);
-            Assert.Contains(("GPU 온도", "91°C"), s.Extras);
-            Assert.Contains(("GPU", "RTX 5080 · 사용률 2%"), s.Extras);
-            Assert.DoesNotContain(s.Extras, e => e.label == "CPU 온도");
+            Assert.Equal("메모리", s.Rows[1].Window);
+
+            // GPU usage and graphics memory as rings, the GPU temperature next to its label.
+            Assert.Equal(4, s.Rows.Count);
+            Assert.Equal("2%", s.Rows[2].Percent);
+            Assert.Equal("GPU · 91°", s.Rows[2].Window);
+            Assert.Equal(Severity.Critical, s.Rows[2].LabelSeverity); // 90° and up
+            Assert.Equal("38%", s.Rows[3].Percent);                    // 6.1 of 16 GB
+            Assert.Equal("VRAM", s.Rows[3].Window);
+            Assert.Contains(("메모리", "40.1 / 125.4 GB"), s.Extras);
+            Assert.Contains(("VRAM", "6.1 / 16.0 GB"), s.Extras);
+            Assert.Contains(("GPU", "RTX 5080"), s.Extras);
+            Assert.DoesNotContain(s.Extras, e => e.label.EndsWith("온도"));
             Assert.Equal(NoticeKind.None, s.NoticeKind);
         }
 
         [Fact]
-        public void Card_Shows_Cpu_Temp_When_Available()
+        public void Card_Shows_Cpu_Temp_Next_To_Cpu()
         {
             var s = CardContent.BuildSystem(Snap(cpuTemp: 61.5));
-            Assert.Contains(("CPU 온도", "62°C"), s.Extras);
+            Assert.Equal("CPU · 62°", s.Rows[0].Window);
+            Assert.Equal(Severity.Normal, s.Rows[0].LabelSeverity);
+        }
+
+        [Fact]
+        public void Card_Without_Nvidia_Gpu_Keeps_Cpu_And_Memory_Only()
+        {
+            var s = CardContent.BuildSystem(Snap(gpuTemp: null, gpuUtil: null, vramUsed: null, vramTotal: null));
+            Assert.Equal(2, s.Rows.Count);
+            Assert.DoesNotContain(s.Extras, e => e.label == "VRAM");
+        }
+
+        [Fact]
+        public void Bar_Adds_A_Gpu_Column_When_The_Gpu_Is_Known()
+        {
+            var r = new BarRenderer(4);
+            var noGpu = r.MeasureBar(new List<ServiceUsage>(), Snap(gpuTemp: null, gpuUtil: null, vramUsed: null, vramTotal: null)).Width;
+            var withGpu = r.MeasureBar(new List<ServiceUsage>(), Snap()).Width;
+            Assert.True(withGpu > noGpu + 30);
         }
 
         [Fact]

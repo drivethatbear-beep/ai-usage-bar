@@ -18,6 +18,8 @@ namespace AIUsageBar.UI
         public string InText;    // "2시간 41분 후"
         public double Remaining;
         public Severity Severity;
+        /// <summary>Colours the small label under a PC ring (its temperature).</summary>
+        public Severity LabelSeverity;
     }
 
     internal sealed class CardSection
@@ -42,6 +44,7 @@ namespace AIUsageBar.UI
                 case "CX": return "Codex";
                 case "GK": return "Grok";
                 case "CU": return "Cursor";
+                case "GM": return "Gemini";
                 case "PC": return "PC";
                 default: return tag ?? "";
             }
@@ -57,6 +60,8 @@ namespace AIUsageBar.UI
                 case "DY": return "일간";
                 case "TOT": return "월간 전체";
                 case "API": return "월간 API";
+                case "GEM": return "Gemini 모델";
+                case "3P": return "Claude·GPT 모델";
                 default: return label;
             }
         }
@@ -82,6 +87,10 @@ namespace AIUsageBar.UI
                 case ServiceStatus.NeedsLogin:
                     s.Notice = "CLI에서 다시 로그인하세요";
                     s.NoticeKind = NoticeKind.Warning;
+                    break;
+                case ServiceStatus.Error when u.Error == "NOT RUNNING":
+                    s.Notice = "Antigravity를 켜면 갱신돼요";
+                    s.NoticeKind = NoticeKind.Muted;
                     break;
                 case ServiceStatus.Error:
                     s.Notice = "갱신 실패 · " + ErrorText(u.Error);
@@ -133,28 +142,43 @@ namespace AIUsageBar.UI
         public static CardSection BuildSystem(SystemSnapshot pc)
         {
             var s = new CardSection { Tag = "PC", Name = "이 PC" };
-            if (pc.CpuPercent.HasValue) s.Rows.Add(UsageRow(pc.CpuPercent.Value, "CPU", ""));
-            s.Rows.Add(UsageRow(pc.MemPercent, "메모리",
-                pc.MemUsedGb.ToString("0.0", CultureInfo.InvariantCulture) + " / " + pc.MemTotalGb.ToString("0.0", CultureInfo.InvariantCulture) + " GB"));
-            if (pc.CpuTempC.HasValue) s.Extras.Add(("CPU 온도", Math.Round(pc.CpuTempC.Value, MidpointRounding.AwayFromZero).ToString("0", CultureInfo.InvariantCulture) + "°C"));
-            if (pc.GpuTempC.HasValue) s.Extras.Add(("GPU 온도", pc.GpuTempC.Value.ToString("0", CultureInfo.InvariantCulture) + "°C"));
-            if (!string.IsNullOrEmpty(pc.GpuName))
-                s.Extras.Add(("GPU", ShortGpu(pc.GpuName) + (pc.GpuUtilPercent.HasValue ? " · 사용률 " + pc.GpuUtilPercent.Value.ToString("0", CultureInfo.InvariantCulture) + "%" : "")));
+            if (pc.CpuPercent.HasValue) s.Rows.Add(UsageRow(pc.CpuPercent.Value, "CPU", WithTemp("CPU", pc.CpuTempC), "", pc.CpuTempC));
+            var memGb = Gb(pc.MemUsedGb, pc.MemTotalGb);
+            s.Rows.Add(UsageRow(pc.MemPercent, "메모리", "메모리", memGb, null));
+            if (pc.GpuUtilPercent.HasValue) s.Rows.Add(UsageRow(pc.GpuUtilPercent.Value, "GPU", WithTemp("GPU", pc.GpuTempC), "", pc.GpuTempC));
+            var vram = pc.VramUsedGb.HasValue && pc.VramTotalGb > 0;
+            if (vram) s.Rows.Add(UsageRow(pc.VramUsedGb.Value / pc.VramTotalGb.Value * 100, "VRAM", "VRAM", Gb(pc.VramUsedGb.Value, pc.VramTotalGb.Value), null));
+
+            s.Extras.Add(("메모리", memGb));
+            if (vram) s.Extras.Add(("VRAM", Gb(pc.VramUsedGb.Value, pc.VramTotalGb.Value)));
+            // Without a GPU usage reading the temperature still gets its own small module.
+            if (!pc.GpuUtilPercent.HasValue && pc.GpuTempC.HasValue) s.Extras.Add(("GPU 온도", Deg(pc.GpuTempC.Value) + "C"));
+            if (!string.IsNullOrEmpty(pc.GpuName)) s.Extras.Add(("GPU", ShortGpu(pc.GpuName)));
             return s;
         }
+
+        private static string Deg(double celsius) => Math.Round(celsius, MidpointRounding.AwayFromZero).ToString("0", CultureInfo.InvariantCulture) + "°";
+
+        private static string WithTemp(string name, double? celsius) => celsius.HasValue ? name + " · " + Deg(celsius.Value) : name;
+
+        private static Severity TempSeverity(double? celsius) => celsius >= 90 ? Severity.Critical : celsius >= 80 ? Severity.Low : Severity.Normal;
+
+        private static string Gb(double used, double total) =>
+            used.ToString("0.0", CultureInfo.InvariantCulture) + " / " + total.ToString("0.0", CultureInfo.InvariantCulture) + " GB";
 
         /// <summary>Usage severity for the PC: 80 % and up warns, 95 % and up is critical.</summary>
         public static Severity UsageSeverity(double used) => used >= 95 ? Severity.Critical : used >= 80 ? Severity.Low : Severity.Normal;
 
-        private static CardRow UsageRow(double used, string window, string right) => new CardRow
+        private static CardRow UsageRow(double used, string name, string label, string right, double? celsius) => new CardRow
         {
             Percent = Math.Round(used).ToString("0", CultureInfo.InvariantCulture) + "%",
-            Caption = "사용 중 · " + window,
-            Window = window,
+            Caption = "사용 중 · " + name,
+            Window = label,
             ResetText = right,
             InText = "",
             Remaining = used,
             Severity = UsageSeverity(used),
+            LabelSeverity = TempSeverity(celsius),
         };
 
         private static string ShortGpu(string name) => name.Replace("NVIDIA GeForce ", "").Replace("NVIDIA ", "").Trim();

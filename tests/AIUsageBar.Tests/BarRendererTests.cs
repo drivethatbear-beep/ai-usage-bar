@@ -50,6 +50,14 @@ namespace AIUsageBar.Tests
         }
 
         [Fact]
+        public void Compact_Shows_One_Number_Per_Service()
+        {
+            var full = new BarRenderer(4) { ShowNames = false }.MeasureBar(Items());
+            var compact = new BarRenderer(4) { ShowNames = false, ShowAllWindows = false }.MeasureBar(Items());
+            Assert.True(compact.Width < full.Width);
+        }
+
+        [Fact]
         public void Measure_Handles_Placeholder_Item_For_Vertical_Layout()
         {
             var one = new BarRenderer(4).MeasureBar(new List<ServiceUsage>(1) { null });

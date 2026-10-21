@@ -83,12 +83,13 @@ namespace AIUsageBar.UI
         public static readonly Color CriticalColor = AppleStyle.For(true).Critical;
         public static readonly Color CriticalText = AppleStyle.For(true).Critical;
 
-        private const float PadX = 6, Ring = 18, RingStroke = 2.8f, Gap = 5, SepPad = 7, SepH = 20, Height = 34;
+        private const float PadX = 6, Ring = 18, RingStroke = 2.8f, Gap = 5, SepPad = 6, SepH = 20, Height = 34;
         private static readonly TimeSpan StaleAfter = TimeSpan.FromMinutes(10);
-        private const string Dot3 = " · ";
+        // Thin spaces around the dot keep "95·58" readable without the width of full spaces.
+        private static readonly string Dot3 = (char)0x2009 + "·" + (char)0x2009;
 
         private readonly float _s;
-        private readonly Font _name, _num, _small, _ko;
+        private readonly Font _name, _num, _small, _ko, _pcLabel, _pcNum;
 
         public const int Level100 = 4;
 
@@ -100,6 +101,8 @@ namespace AIUsageBar.UI
             _num = AppleStyle.Font(15.5f * _s, display: false, semibold: true);
             _small = AppleStyle.Font(14f * _s, display: false, semibold: false);
             _ko = AppleStyle.Korean(13.5f * _s, semibold: false);
+            _pcLabel = AppleStyle.Font(12f * _s, display: false, semibold: false);
+            _pcNum = AppleStyle.Font(13f * _s, display: false, semibold: true);
         }
 
         /// <summary>Size level in 25 % steps: 4 = 100 %. An integer so layout fitting can step it down.</summary>
@@ -108,6 +111,8 @@ namespace AIUsageBar.UI
         public bool ShowReset { get; set; }
         /// <summary>Service names next to the rings; hidden (ring and numbers only) when the taskbar is short on room.</summary>
         public bool ShowNames { get; set; } = true;
+        /// <summary>Every window's number ("95·58"); false shows only the tightest one, the same value as the ring.</summary>
+        public bool ShowAllWindows { get; set; } = true;
 
         private AppleStyle St => AppleStyle.For(Light);
         public Color Muted => St.Secondary;
@@ -165,8 +170,8 @@ namespace AIUsageBar.UI
         private float PlaceholderW()
         {
             var svc = S(Ring) + S(Gap) + (ShowNames ? Paint.Measure("Cursor", _name).Width + S(Gap) : 0)
-                + Paint.Measure("100" + Dot3 + "100", _num).Width + (ShowReset ? S(Gap) + ResetSlot : 0);
-            var pc = PcBlock(null, 0, 0, new SystemSnapshot { CpuPercent = 100, MemPercent = 100, CpuTempC = 100 });
+                + Paint.Measure(ShowAllWindows ? "100" + Dot3 + "100" : "100", _num).Width + (ShowReset ? S(Gap) + ResetSlot : 0);
+            var pc = PcBlock(null, 0, 0, new SystemSnapshot { CpuPercent = 100, MemPercent = 100, CpuTempC = 100, GpuUtilPercent = 100, GpuTempC = 100, VramUsedGb = 1, VramTotalGb = 1 });
             return Math.Max(svc, pc);
         }
 
@@ -184,6 +189,7 @@ namespace AIUsageBar.UI
             UsageWindow tight = null;
             foreach (var w in windows)
                 if (tight == null || w.RemainingAt(now) < tight.RemainingAt(now)) tight = w;
+            if (!ShowAllWindows && tight != null) windows = new List<UsageWindow> { tight };
             if (g != null)
             {
                 var rect = new RectangleF(x0, mid - S(Ring) / 2, S(Ring), S(Ring));
@@ -230,26 +236,55 @@ namespace AIUsageBar.UI
             return x - x0;
         }
 
-        /// <summary>"CPU 35% · 46°  RAM 51%": labels in the PC blue, values in the label colour or warning colours.</summary>
+        /// <summary>
+        /// The PC in two short rows like the taskbar clock ("CPU 35%·46°" over "RAM 51%"), so it takes half the
+        /// width of one line: labels in the PC blue, values in the label colour or warning colours.
+        /// </summary>
         private float PcBlock(Graphics g, float x0, float mid, SystemSnapshot pc)
         {
             var st = St;
-            var x = x0;
+            var top = mid - S(8.5f);
+            var bottom = mid + S(8.5f);
+            var labelW = Math.Max(Paint.Measure("CPU", _pcLabel).Width, Paint.Measure("RAM", _pcLabel).Width) + S(4);
+            Text(g, "CPU", _pcLabel, st.PcAccent, x0, top);
+            Text(g, "RAM", _pcLabel, st.PcAccent, x0, bottom);
+
+            var gpu = pc.GpuUtilPercent.HasValue;
             var cpu = pc.CpuPercent ?? 0;
-            x += Text(g, "CPU ", _name, st.PcAccent, x, mid);
-            x += Text(g, Pct(cpu), _num, st.StateColor(CardContent.UsageSeverity(cpu), st.Label), x, mid);
-            var temp = pc.CpuTempC ?? pc.GpuTempC;
-            if (temp.HasValue)
+            var x = x0 + labelW;
+            x += Text(g, Pct(cpu), _pcNum, st.StateColor(CardContent.UsageSeverity(cpu), st.Label), x, top);
+            // With a GPU column its temperature sits there; otherwise the GPU's stands in for a missing CPU sensor.
+            x += Temp(g, gpu ? pc.CpuTempC : pc.CpuTempC ?? pc.GpuTempC, x, top);
+            var ram = x0 + labelW + Text(g, Pct(pc.MemPercent), _pcNum, st.StateColor(CardContent.UsageSeverity(pc.MemPercent), st.Label), x0 + labelW, bottom);
+            var right = Math.Max(x, ram);
+            if (!gpu) return right - x0;
+
+            // Second column: "GPU 12%·52°" over "VRAM 30%".
+            var x1 = right + S(Gap) * 2;
+            var gpuLabelW = Math.Max(Paint.Measure("GPU", _pcLabel).Width, Paint.Measure("VRAM", _pcLabel).Width) + S(4);
+            Text(g, "GPU", _pcLabel, st.PcAccent, x1, top);
+            var gx = x1 + gpuLabelW;
+            var util = pc.GpuUtilPercent.Value;
+            gx += Text(g, Pct(util), _pcNum, st.StateColor(CardContent.UsageSeverity(util), st.Label), gx, top);
+            gx += Temp(g, pc.GpuTempC, gx, top);
+            var vx = x1 + gpuLabelW;
+            if (pc.VramUsedGb.HasValue && pc.VramTotalGb > 0)
             {
-                x += Text(g, Dot3, _num, st.Secondary, x, mid);
-                var t = temp.Value;
-                var tc = t >= 90 ? st.Critical : t >= 80 ? st.Warning : st.Label;
-                x += Text(g, Math.Round(t).ToString("0", CultureInfo.InvariantCulture) + "°", _num, tc, x, mid);
+                var v = pc.VramUsedGb.Value / pc.VramTotalGb.Value * 100;
+                Text(g, "VRAM", _pcLabel, st.PcAccent, x1, bottom);
+                vx += Text(g, Pct(v), _pcNum, st.StateColor(CardContent.UsageSeverity(v), st.Label), vx, bottom);
             }
-            x += S(Gap) * 2;
-            x += Text(g, "RAM ", _name, st.PcAccent, x, mid);
-            x += Text(g, Pct(pc.MemPercent), _num, st.StateColor(CardContent.UsageSeverity(pc.MemPercent), st.Label), x, mid);
-            return x - x0;
+            return Math.Max(gx, vx) - x0;
+        }
+
+        /// <summary>"·52°" after a usage value; orange from 80°, red from 90°. Returns its width (0 without a reading).</summary>
+        private float Temp(Graphics g, double? celsius, float x, float mid)
+        {
+            if (!celsius.HasValue) return 0;
+            var st = St;
+            var t = celsius.Value;
+            var w = Text(g, Dot3, _pcNum, st.Secondary, x, mid);
+            return w + Text(g, Math.Round(t).ToString("0", CultureInfo.InvariantCulture) + "°", _pcNum, t >= 90 ? st.Critical : t >= 80 ? st.Warning : st.Label, x + w, mid);
         }
 
         private static string Pct(double v) => Math.Round(v).ToString("0", CultureInfo.InvariantCulture) + "%";
@@ -271,6 +306,8 @@ namespace AIUsageBar.UI
             _num.Dispose();
             _small.Dispose();
             _ko.Dispose();
+            _pcLabel.Dispose();
+            _pcNum.Dispose();
         }
     }
 }

@@ -15,6 +15,9 @@ namespace AIUsageBar.Providers
         public double? GpuUtilPercent;
         public string GpuName;
         public double? CpuTempC;
+        /// <summary>Graphics memory in use and installed (GiB), NVIDIA only.</summary>
+        public double? VramUsedGb;
+        public double? VramTotalGb;
     }
 
     /// <summary>
@@ -87,6 +90,11 @@ namespace AIUsageBar.Providers
             if (!_nvmlOk) return;
             if (nvmlDeviceGetTemperature(_gpu, 0, out var t) == 0) s.GpuTempC = t;
             if (nvmlDeviceGetUtilizationRates(_gpu, out var u) == 0) s.GpuUtilPercent = u.gpu;
+            if (nvmlDeviceGetMemoryInfo(_gpu, out var vram) == 0 && vram.total > 0)
+            {
+                s.VramUsedGb = vram.used / 1073741824.0;
+                s.VramTotalGb = vram.total / 1073741824.0;
+            }
             s.GpuName = _gpuName;
         }
 
@@ -147,6 +155,9 @@ namespace AIUsageBar.Providers
         [StructLayout(LayoutKind.Sequential)]
         private struct NvmlUtilization { public uint gpu, memory; }
 
+        [StructLayout(LayoutKind.Sequential)]
+        private struct NvmlMemory { public ulong total, free, used; }
+
         [DllImport("kernel32.dll", SetLastError = true)] private static extern bool GetSystemTimes(out FILETIME idle, out FILETIME kernel, out FILETIME user);
         [DllImport("kernel32.dll", SetLastError = true)] private static extern bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX m);
         [DllImport("nvml.dll")] private static extern int nvmlInit_v2();
@@ -155,5 +166,6 @@ namespace AIUsageBar.Providers
         [DllImport("nvml.dll", CharSet = CharSet.Ansi)] private static extern int nvmlDeviceGetName(IntPtr device, StringBuilder name, uint length);
         [DllImport("nvml.dll")] private static extern int nvmlDeviceGetTemperature(IntPtr device, int sensor, out uint temp);
         [DllImport("nvml.dll")] private static extern int nvmlDeviceGetUtilizationRates(IntPtr device, out NvmlUtilization util);
+        [DllImport("nvml.dll")] private static extern int nvmlDeviceGetMemoryInfo(IntPtr device, out NvmlMemory memory);
     }
 }

@@ -12,6 +12,7 @@ namespace AIUsageBar.UI
         private readonly CheckBox _codex = new CheckBox { Text = "Codex 표시", AutoSize = true };
         private readonly CheckBox _grok = new CheckBox { Text = "Grok 표시", AutoSize = true };
         private readonly CheckBox _cursor = new CheckBox { Text = "Cursor 표시", AutoSize = true };
+        private readonly CheckBox _gemini = new CheckBox { Text = "Gemini 표시 (Antigravity 실행 중일 때 갱신)", AutoSize = true };
         private readonly CheckBox _system = new CheckBox { Text = "PC 상태 표시 (CPU · 메모리 · 온도)", AutoSize = true };
         private readonly CheckBox _pin = new CheckBox { Text = "상세 카드를 바탕화면에 띄워두기", AutoSize = true };
         private readonly CheckBox _pinTop = new CheckBox { Text = "바탕화면 카드를 항상 위에 표시", AutoSize = true };
@@ -43,6 +44,7 @@ namespace AIUsageBar.UI
             _codex.Checked = s.ShowCodex;
             _grok.Checked = s.ShowGrok;
             _cursor.Checked = s.ShowCursor;
+            _gemini.Checked = s.ShowGemini;
             _system.Checked = s.ShowSystem;
             _pin.Checked = s.PinCardOnDesktop;
             _pinTop.Checked = s.DesktopCardTopMost;
@@ -63,7 +65,7 @@ namespace AIUsageBar.UI
             Row("바탕화면 카드 크기(%)", _cardScale, "카드 위에서 Ctrl + 휠로도 조절");
             Row("Grok 주간 예산($)", _budget, "구독 한도를 못 읽을 때만 사용, 0이면 금액만 표시");
             var checks = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, AutoSize = true, Margin = new Padding(0, 8, 0, 0) };
-            checks.Controls.AddRange(new Control[] { _claude, _codex, _grok, _cursor, _system, _reset, _pin, _pinTop, _startup });
+            checks.Controls.AddRange(new Control[] { _claude, _codex, _grok, _cursor, _gemini, _system, _reset, _pin, _pinTop, _startup });
             grid.Controls.Add(new Label { Text = "표시", AutoSize = true, Margin = new Padding(0, 10, 12, 4) });
             grid.Controls.Add(checks);
 
@@ -91,6 +93,7 @@ namespace AIUsageBar.UI
             ShowCodex = _codex.Checked,
             ShowGrok = _grok.Checked,
             ShowCursor = _cursor.Checked,
+            ShowGemini = _gemini.Checked,
             ShowSystem = _system.Checked,
             PinCardOnDesktop = _pin.Checked,
             DesktopCardTopMost = _pinTop.Checked,
