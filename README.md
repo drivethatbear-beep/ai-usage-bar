@@ -1,6 +1,6 @@
 # AI Usage Bar
 
-Windows 작업표시줄 맨 왼쪽에 **Claude · Codex · Grok · Cursor · Gemini 잔여 사용량**과 **이 PC의 CPU·메모리·그래픽카드(GPU·VRAM)·온도**를 macOS 메뉴 막대처럼 깔끔하게 상시 표시합니다. 마우스를 올리면 제어 센터 스타일의 반투명(Acrylic) 상세 카드가 열립니다.
+Windows 작업표시줄 맨 왼쪽에 **Claude · Codex · Grok · Cursor · Gemini · Kimi 잔여 사용량**과 **이 PC의 CPU·메모리·그래픽카드(GPU·VRAM)·온도**를 macOS 메뉴 막대처럼 깔끔하게 상시 표시합니다. 마우스를 올리면 제어 센터 스타일의 반투명(Acrylic) 상세 카드가 열립니다.
 
 ```
 ● Claude  ━━━━━━━──  66% 20:09  │  ● Codex  ━━━━━━━━━─  88% 10/7  │  ● Grok  ━━━━━━━━━─  94% 10/7
@@ -16,6 +16,7 @@ Windows 작업표시줄 맨 왼쪽에 **Claude · Codex · Grok · Cursor · Gem
   - Grok: Grok CLI 사용 기록 (`%USERPROFILE%\.grok\sessions`)
   - Cursor: Cursor 앱 로그인 (`%APPDATA%\Cursor\User\globalStorage\state.vscdb`, Windows 기본 SQLite로 읽기만 함)
   - Gemini: Google Antigravity 로그인 (Antigravity가 실행 중일 때 갱신)
+  - Kimi: Kimi Code 로그인 (`%USERPROFILE%\.kimi-code\credentials`, Kimi Code가 실행 중일 때 갱신)
 - 로그인되지 않은 서비스는 `--`로 표시되고, 나머지는 정상 동작합니다.
 
 ## 설치 / 제거
@@ -28,9 +29,9 @@ Windows 작업표시줄 맨 왼쪽에 **Claude · Codex · Grok · Cursor · Gem
 
 | 표시 | 의미 |
 |---|---|
-| 고리 색 | 서비스: Claude 주황 · Codex 초록 · Grok 검정(다크 모드 흰색) · Cursor 보라 · Gemini 하늘색, 파란 `CPU`·`RAM`은 이 PC |
+| 고리 색 | 서비스: Claude 주황 · Codex 초록 · Grok 검정(다크 모드 흰색) · Cursor 보라 · Gemini 하늘색 · Kimi 분홍, 파란 `CPU`·`RAM`은 이 PC |
 | 고리 | 가장 빠듯한 한도의 **남은** 양 |
-| `89 · 30` | 한도별 **남은** % (Claude는 5시간 · 주간, Codex·Grok은 주간) |
+| `89 · 30` | 한도별 **남은** % (Claude는 5시간 · 주간, Kimi는 5시간 · 월간, Codex·Grok은 주간) |
 | `20:09` / `10/7` | 리셋 시각 (24시간 이내면 시:분, 아니면 월/일) |
 | 주황색 숫자 | 남은 양 20% 이하 |
 | 빨간색(고리 깜빡임) | 남은 양 5% 미만 |
@@ -67,6 +68,12 @@ Windows 작업표시줄 맨 왼쪽에 **Claude · Codex · Grok · Cursor · Gem
 - 이 PC에서 실행 중인 Antigravity에게만 물어봅니다(127.0.0.1). 토큰 파일을 읽지 않고, 외부로 직접 접속하지 않습니다.
 - Antigravity가 꺼져 있으면 마지막 값을 흐리게 보여 주고, 켜면 다시 갱신됩니다.
 
+## Kimi 표시에 대해
+
+- Kimi Code의 사용량과 같은 값입니다. 위 막대 = 5시간 한도, 아래 막대 = 월간 전체 한도, 리셋 = 각 한도 초기화 시각
+- Kimi Code가 저장한 로그인 토큰을 읽기만 하며 `api.kimi.ai`에만 보냅니다. 토큰을 갱신하지 않습니다.
+- Kimi Code의 로그인 토큰은 15분마다 Kimi Code가 직접 갱신합니다. 그래서 Kimi Code가 꺼져 있으면 마지막 값을 흐리게 보여 주고, Kimi Code를 켜서 토큰이 갱신되면 바로 다시 조회합니다.
+
 ## Grok 표시에 대해
 
 - 게이지: **SuperGrok 구독 한도 대비 잔여 %**와 리셋 시각입니다. grok.com → 설정 → 사용량의 "매주 SuperGrok 한도"와 같은 값입니다.
@@ -83,7 +90,7 @@ Windows 작업표시줄 맨 왼쪽에 **Claude · Codex · Grok · Cursor · Gem
 |---|---|
 | 갱신 주기(초) | 120 (최소 60) |
 | Grok 주간 예산($) | 0 (구독 한도를 못 읽을 때만 사용) |
-| 표시할 서비스 (Claude·Codex·Grok·Cursor·Gemini·PC 상태) | 모두 |
+| 표시할 서비스 (Claude·Codex·Grok·Cursor·Gemini·Kimi·PC 상태) | 모두 |
 | 작업표시줄에 리셋 시각 표시 | 켜짐 |
 | Windows 시작 시 실행 | 설치 시 선택 (작업 스케줄러의 로그온 작업 `AIUsageBar`로 등록해 로그인 직후 바로 시작) |
 
@@ -97,7 +104,7 @@ Windows 작업표시줄 맨 왼쪽에 **Claude · Codex · Grok · Cursor · Gem
 ## 개인정보
 
 - 각 CLI가 저장한 로그인 정보를 **읽기만** 합니다. 토큰을 갱신하거나 수정하지 않습니다.
-- 사용량 조회는 각 서비스의 공식 주소로만 보냅니다: `api.anthropic.com`, `chatgpt.com`, `cursor.com`. Grok은 로컬 파일과 로컬 Grok CLI만 사용합니다(CLI가 자체 로그인으로 xAI에 조회).
+- 사용량 조회는 각 서비스의 공식 주소로만 보냅니다: `api.anthropic.com`, `chatgpt.com`, `cursor.com`, `api.kimi.ai`. Grok은 로컬 파일과 로컬 Grok CLI만 사용합니다(CLI가 자체 로그인으로 xAI에 조회).
 - 오류 기록: `%APPDATA%\AIUsageBar\error.log`
 
 ## 빌드

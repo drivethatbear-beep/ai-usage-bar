@@ -21,6 +21,7 @@ namespace AIUsageBar
         public bool ShowResetOnBar = true;
         public bool ShowCursor = true;
         public bool ShowGemini = true;
+        public bool ShowKimi = true;
         public bool ShowSystem = true;
         /// <summary>Keep the detail card open on the desktop as a widget.</summary>
         public bool PinCardOnDesktop;
@@ -50,6 +51,7 @@ namespace AIUsageBar
                 s.ShowResetOnBar = Bool(d, "showResetOnBar", s.ShowResetOnBar);
                 s.ShowCursor = Bool(d, "showCursor", s.ShowCursor);
                 s.ShowGemini = Bool(d, "showGemini", s.ShowGemini);
+                s.ShowKimi = Bool(d, "showKimi", s.ShowKimi);
                 s.ShowSystem = Bool(d, "showSystem", s.ShowSystem);
                 s.PinCardOnDesktop = Bool(d, "pinCardOnDesktop", s.PinCardOnDesktop);
                 s.DesktopCardTopMost = Bool(d, "desktopCardTopMost", s.DesktopCardTopMost);
@@ -81,6 +83,7 @@ namespace AIUsageBar
             sb.Append("  \"showResetOnBar\": ").Append(B(ShowResetOnBar)).Append(",\n");
             sb.Append("  \"showCursor\": ").Append(B(ShowCursor)).Append(",\n");
             sb.Append("  \"showGemini\": ").Append(B(ShowGemini)).Append(",\n");
+            sb.Append("  \"showKimi\": ").Append(B(ShowKimi)).Append(",\n");
             sb.Append("  \"showSystem\": ").Append(B(ShowSystem)).Append(",\n");
             sb.Append("  \"pinCardOnDesktop\": ").Append(B(PinCardOnDesktop)).Append(",\n");
             sb.Append("  \"desktopCardTopMost\": ").Append(B(DesktopCardTopMost)).Append(",\n");
