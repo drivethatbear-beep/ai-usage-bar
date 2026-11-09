@@ -43,7 +43,7 @@ namespace AIUsageBar.UI
                 case "CL": return "Claude";
                 case "CX": return "Codex";
                 case "GK": return "Grok";
-                case "CU": return "Cursor";
+                case "OC": return "OpenCode";
                 case "GM": return "Gemini";
                 case "KM": return "Kimi";
                 case "PC": return "PC";
@@ -78,7 +78,9 @@ namespace AIUsageBar.UI
 
         private static CardSection Section(ServiceUsage u, DateTimeOffset now)
         {
-            var s = new CardSection { Tag = u.Tag, Name = NameFor(u.Tag), Plan = Fmt.PlanName(u.Plan) };
+            // Grok on a unified X Subscription plan shares its pool with Cursor; the provider names it "Grok · Cursor".
+            var name = u.Tag == "GK" && u.Service == GrokProvider.SharedName ? u.Service : NameFor(u.Tag);
+            var s = new CardSection { Tag = u.Tag, Name = name, Plan = Fmt.PlanName(u.Plan) };
             switch (u.Status)
             {
                 case ServiceStatus.NotInstalled:
@@ -135,6 +137,10 @@ namespace AIUsageBar.UI
                 case "LEFT": return ("예산 잔액", value);
                 case "SOURCE": return ("기준", value == "LOCAL" ? "로컬 기록" : value);
                 case "UNLIMITED": return ("한도", value);
+                case "SHARED": return ("공유 한도", value);
+                case "LIMIT 5H": return ("5시간 한도", value);
+                case "LIMIT WK": return ("주간 한도", value);
+                case "LIMIT MO": return ("월간 한도", value);
                 default: return null; // e.g. BILLING / "$ IS" are implied by the plan badge
             }
         }

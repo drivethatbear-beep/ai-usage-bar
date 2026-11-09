@@ -254,7 +254,7 @@ namespace AIUsageBar.UI
                 case "CL": return "C";
                 case "CX": return "X";
                 case "GK": return "G";
-                case "CU": return "Cu";
+                case "OC": return "Oc";
                 case "GM": return "Ge";
                 case "KM": return "Ki";
                 default: return string.IsNullOrEmpty(tag) ? "?" : tag.Substring(0, 1);

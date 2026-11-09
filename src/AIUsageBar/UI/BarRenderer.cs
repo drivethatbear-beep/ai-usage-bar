@@ -77,7 +77,6 @@ namespace AIUsageBar.UI
         public static readonly Color CodexColor = AppleStyle.Codex;
         public static readonly Color GrokDark = Color.FromArgb(0x1D, 0x1D, 0x1F);
         public static readonly Color GrokLight = Color.FromArgb(0xF5, 0xF5, 0xF7);
-        public static readonly Color CursorColor = AppleStyle.Cursor;
         public static readonly Color PcColor = AppleStyle.Accent;
         public static readonly Color LowColor = AppleStyle.For(true).Warning;
         public static readonly Color CriticalColor = AppleStyle.For(true).Critical;

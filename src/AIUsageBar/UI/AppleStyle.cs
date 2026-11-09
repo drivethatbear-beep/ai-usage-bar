@@ -15,7 +15,7 @@ namespace AIUsageBar.UI
     {
         public static readonly Color Claude = Color.FromArgb(0xD9, 0x77, 0x57);
         public static readonly Color Codex = Color.FromArgb(0x10, 0xA3, 0x7F);
-        public static readonly Color Cursor = Color.FromArgb(0x6E, 0x56, 0xCF);
+        public static readonly Color OpenCode = Color.FromArgb(0xF2, 0x8C, 0x28);
         public static readonly Color Gemini = Color.FromArgb(0x47, 0x96, 0xE3);
         public static readonly Color Kimi = Color.FromArgb(0xE0, 0x4F, 0x8C);
         public static readonly Color Accent = Color.FromArgb(0x0A, 0x84, 0xFF);
@@ -58,7 +58,7 @@ namespace AIUsageBar.UI
                 case "CL": return Claude;
                 case "CX": return Codex;
                 case "GK": return Label;
-                case "CU": return Cursor;
+                case "OC": return OpenCode;
                 case "GM": return Gemini;
                 case "KM": return Kimi;
                 case "PC": return PcAccent;

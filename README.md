@@ -1,6 +1,6 @@
 # AI Usage Bar
 
-Windows 작업표시줄 맨 왼쪽에 **Claude · Codex · Grok · Cursor · Gemini · Kimi 잔여 사용량**과 **이 PC의 CPU·메모리·그래픽카드(GPU·VRAM)·온도**를 macOS 메뉴 막대처럼 깔끔하게 상시 표시합니다. 마우스를 올리면 제어 센터 스타일의 반투명(Acrylic) 상세 카드가 열립니다.
+Windows 작업표시줄 맨 왼쪽에 **Claude · Codex · Grok·Cursor · Gemini · Kimi · OpenCode Go 잔여 사용량**과 **이 PC의 CPU·메모리·그래픽카드(GPU·VRAM)·온도**를 macOS 메뉴 막대처럼 깔끔하게 상시 표시합니다. 마우스를 올리면 제어 센터 스타일의 반투명(Acrylic) 상세 카드가 열립니다.
 
 ```
 ● Claude  ━━━━━━━──  66% 20:09  │  ● Codex  ━━━━━━━━━─  88% 10/7  │  ● Grok  ━━━━━━━━━─  94% 10/7
@@ -14,7 +14,8 @@ Windows 작업표시줄 맨 왼쪽에 **Claude · Codex · Grok · Cursor · Gem
   - Claude: [Claude Code](https://claude.com/claude-code) 로그인 (`%USERPROFILE%\.claude\.credentials.json`)
   - Codex: Codex CLI 로그인 (`%USERPROFILE%\.codex\auth.json`)
   - Grok: Grok CLI 사용 기록 (`%USERPROFILE%\.grok\sessions`)
-  - Cursor: Cursor 앱 로그인 (`%APPDATA%\Cursor\User\globalStorage\state.vscdb`, Windows 기본 SQLite로 읽기만 함)
+  - Cursor: Cursor 앱 로그인 (`%APPDATA%\Cursor\User\globalStorage\state.vscdb`에서 요금제 이름만 읽음, Windows 기본 SQLite로 읽기만 함)
+  - OpenCode Go: OpenCode에서 Go 구독 연결 (`OPENCODE_API_KEY`, `%USERPROFILE%\.local\share\opencode\opencode.db` 또는 같은 폴더의 `auth.json`에서 키를 읽기만 함)
   - Gemini: Google Antigravity 로그인 (Antigravity가 실행 중일 때 갱신)
   - Kimi: Kimi Code 로그인 (`%USERPROFILE%\.kimi-code\credentials`, Kimi Code가 실행 중일 때 갱신)
 - 로그인되지 않은 서비스는 `--`로 표시되고, 나머지는 정상 동작합니다.
@@ -29,9 +30,9 @@ Windows 작업표시줄 맨 왼쪽에 **Claude · Codex · Grok · Cursor · Gem
 
 | 표시 | 의미 |
 |---|---|
-| 고리 색 | 서비스: Claude 주황 · Codex 초록 · Grok 검정(다크 모드 흰색) · Cursor 보라 · Gemini 하늘색 · Kimi 분홍, 파란 `CPU`·`RAM`은 이 PC |
+| 고리 색 | 서비스: Claude 주황 · Codex 초록 · Grok·Cursor 검정(다크 모드 흰색) · Gemini 하늘색 · Kimi 분홍 · OpenCode 주황, 파란 `CPU`·`RAM`은 이 PC |
 | 고리 | 가장 빠듯한 한도의 **남은** 양 |
-| `89 · 30` | 한도별 **남은** % (Claude는 5시간 · 주간, Kimi는 5시간 · 월간, Codex·Grok은 주간) |
+| `89 · 30` | 한도별 **남은** % (Claude는 5시간 · 주간, Kimi는 5시간 · 월간, OpenCode Go는 5시간 · 주간(월간은 상세 카드), Codex·Grok은 주간) |
 | `20:09` / `10/7` | 리셋 시각 (24시간 이내면 시:분, 아니면 월/일) |
 | 주황색 숫자 | 남은 양 20% 이하 |
 | 빨간색(고리 깜빡임) | 남은 양 5% 미만 |
@@ -57,10 +58,15 @@ Windows 작업표시줄 맨 왼쪽에 **Claude · Codex · Grok · Cursor · Gem
 - 그래픽카드: NVIDIA GPU가 있으면 GPU 사용률과 그래픽 메모리(VRAM) 사용률을 옆 칸에 표시합니다(`GPU 10%·49°` / `VRAM 33%`). 상세 카드에는 GB 수치와 모델명이 나옵니다. NVIDIA가 아닌 그래픽카드는 표시하지 않습니다.
 - 온도: NVIDIA GPU 온도는 드라이버의 NVML로 읽습니다(`GPU 46°`). CPU 온도는 Windows가 열 센서(ACPI)를 제공하는 PC(주로 노트북)에서만 표시됩니다. 데스크톱 CPU 온도는 관리자 권한 드라이버가 필요해 지원하지 않습니다.
 
-## Cursor 표시에 대해
+## Grok · Cursor 표시에 대해
 
-- Cursor 설정 → 사용량과 같은 값입니다. 위 막대 = 포함 사용량 전체, 아래 막대 = API 사용량, 리셋 = 청구 주기 종료일
-- 로그인 토큰은 읽기만 하며 cursor.com에만 보냅니다.
+- 2026년 8월 SpaceX(SpaceXAI)의 Cursor 인수 뒤 X Subscription 통합 요금제는 Grok 앱 · Grok Build · Cursor가 주간 한도 하나를 같이 씁니다. Cursor가 통합 요금제(`unified_*`)이면 Grok 항목을 **Grok · Cursor**로 보여 주고, 요금제 이름은 Cursor 쪽(예: Ultra)을 씁니다.
+- 별도 Cursor 항목은 없앴습니다. Cursor에서는 요금제 이름만 읽고 사용량 조회는 하지 않습니다.
+
+## OpenCode Go 표시에 대해
+
+- opencode.ai/zen/go/v1/usage의 5시간 · 주간 · 월간 한도를 보여 줍니다(OpenCode의 Go 사용량 화면과 같은 값).
+- 키는 `OPENCODE_API_KEY` → OpenCode DB의 `opencode-go` 연결 → `auth.json` 순으로 찾고, 읽기만 하며 opencode.ai에만 보냅니다.
 
 ## Gemini 표시에 대해
 
@@ -90,7 +96,7 @@ Windows 작업표시줄 맨 왼쪽에 **Claude · Codex · Grok · Cursor · Gem
 |---|---|
 | 갱신 주기(초) | 120 (최소 60) |
 | Grok 주간 예산($) | 0 (구독 한도를 못 읽을 때만 사용) |
-| 표시할 서비스 (Claude·Codex·Grok·Cursor·Gemini·Kimi·PC 상태) | 모두 |
+| 표시할 서비스 (Claude·Codex·Grok·Cursor·Gemini·Kimi·OpenCode Go·PC 상태) | 모두 |
 | 작업표시줄에 리셋 시각 표시 | 켜짐 |
 | Windows 시작 시 실행 | 설치 시 선택 (작업 스케줄러의 로그온 작업 `AIUsageBar`로 등록해 로그인 직후 바로 시작) |
 
@@ -104,7 +110,7 @@ Windows 작업표시줄 맨 왼쪽에 **Claude · Codex · Grok · Cursor · Gem
 ## 개인정보
 
 - 각 CLI가 저장한 로그인 정보를 **읽기만** 합니다. 토큰을 갱신하거나 수정하지 않습니다.
-- 사용량 조회는 각 서비스의 공식 주소로만 보냅니다: `api.anthropic.com`, `chatgpt.com`, `cursor.com`, `api.kimi.ai`. Grok은 로컬 파일과 로컬 Grok CLI만 사용합니다(CLI가 자체 로그인으로 xAI에 조회).
+- 사용량 조회는 각 서비스의 공식 주소로만 보냅니다: `api.anthropic.com`, `chatgpt.com`, `api.kimi.ai`, `opencode.ai`. Grok은 로컬 파일과 로컬 Grok CLI만 사용합니다(CLI가 자체 로그인으로 xAI에 조회).
 - 오류 기록: `%APPDATA%\AIUsageBar\error.log`
 
 ## 빌드

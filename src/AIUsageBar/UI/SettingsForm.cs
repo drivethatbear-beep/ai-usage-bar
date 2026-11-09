@@ -10,8 +10,8 @@ namespace AIUsageBar.UI
         private readonly NumericUpDown _budget = new NumericUpDown { Minimum = 0, Maximum = 100000, DecimalPlaces = 2, Increment = 5, Width = 90 };
         private readonly CheckBox _claude = new CheckBox { Text = "Claude 표시", AutoSize = true };
         private readonly CheckBox _codex = new CheckBox { Text = "Codex 표시", AutoSize = true };
-        private readonly CheckBox _grok = new CheckBox { Text = "Grok 표시", AutoSize = true };
-        private readonly CheckBox _cursor = new CheckBox { Text = "Cursor 표시", AutoSize = true };
+        private readonly CheckBox _grok = new CheckBox { Text = "Grok · Cursor 표시 (통합 요금제는 한도 공유)", AutoSize = true };
+        private readonly CheckBox _opencode = new CheckBox { Text = "OpenCode Go 표시", AutoSize = true };
         private readonly CheckBox _gemini = new CheckBox { Text = "Gemini 표시 (Antigravity 실행 중일 때 갱신)", AutoSize = true };
         private readonly CheckBox _kimi = new CheckBox { Text = "Kimi 표시 (Kimi Code 실행 중일 때 갱신)", AutoSize = true };
         private readonly CheckBox _system = new CheckBox { Text = "PC 상태 표시 (CPU · 메모리 · 온도)", AutoSize = true };
@@ -44,7 +44,7 @@ namespace AIUsageBar.UI
             _claude.Checked = s.ShowClaude;
             _codex.Checked = s.ShowCodex;
             _grok.Checked = s.ShowGrok;
-            _cursor.Checked = s.ShowCursor;
+            _opencode.Checked = s.ShowOpenCode;
             _gemini.Checked = s.ShowGemini;
             _kimi.Checked = s.ShowKimi;
             _system.Checked = s.ShowSystem;
@@ -67,7 +67,7 @@ namespace AIUsageBar.UI
             Row("바탕화면 카드 크기(%)", _cardScale, "카드 위에서 Ctrl + 휠로도 조절");
             Row("Grok 주간 예산($)", _budget, "구독 한도를 못 읽을 때만 사용, 0이면 금액만 표시");
             var checks = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, AutoSize = true, Margin = new Padding(0, 8, 0, 0) };
-            checks.Controls.AddRange(new Control[] { _claude, _codex, _grok, _cursor, _gemini, _kimi, _system, _reset, _pin, _pinTop, _startup });
+            checks.Controls.AddRange(new Control[] { _claude, _codex, _grok, _gemini, _kimi, _opencode, _system, _reset, _pin, _pinTop, _startup });
             grid.Controls.Add(new Label { Text = "표시", AutoSize = true, Margin = new Padding(0, 10, 12, 4) });
             grid.Controls.Add(checks);
 
@@ -94,7 +94,7 @@ namespace AIUsageBar.UI
             ShowClaude = _claude.Checked,
             ShowCodex = _codex.Checked,
             ShowGrok = _grok.Checked,
-            ShowCursor = _cursor.Checked,
+            ShowOpenCode = _opencode.Checked,
             ShowGemini = _gemini.Checked,
             ShowKimi = _kimi.Checked,
             ShowSystem = _system.Checked,

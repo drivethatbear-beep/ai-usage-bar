@@ -19,7 +19,7 @@ namespace AIUsageBar
         public bool ShowGrok = true;
         public bool RunAtStartup = true;
         public bool ShowResetOnBar = true;
-        public bool ShowCursor = true;
+        public bool ShowOpenCode = true;
         public bool ShowGemini = true;
         public bool ShowKimi = true;
         public bool ShowSystem = true;
@@ -49,7 +49,7 @@ namespace AIUsageBar
                 s.ShowGrok = Bool(d, "showGrok", s.ShowGrok);
                 s.RunAtStartup = Bool(d, "runAtStartup", s.RunAtStartup);
                 s.ShowResetOnBar = Bool(d, "showResetOnBar", s.ShowResetOnBar);
-                s.ShowCursor = Bool(d, "showCursor", s.ShowCursor);
+                s.ShowOpenCode = Bool(d, "showOpenCode", s.ShowOpenCode);
                 s.ShowGemini = Bool(d, "showGemini", s.ShowGemini);
                 s.ShowKimi = Bool(d, "showKimi", s.ShowKimi);
                 s.ShowSystem = Bool(d, "showSystem", s.ShowSystem);
@@ -81,9 +81,9 @@ namespace AIUsageBar
             sb.Append("  \"showGrok\": ").Append(B(ShowGrok)).Append(",\n");
             sb.Append("  \"runAtStartup\": ").Append(B(RunAtStartup)).Append(",\n");
             sb.Append("  \"showResetOnBar\": ").Append(B(ShowResetOnBar)).Append(",\n");
-            sb.Append("  \"showCursor\": ").Append(B(ShowCursor)).Append(",\n");
             sb.Append("  \"showGemini\": ").Append(B(ShowGemini)).Append(",\n");
             sb.Append("  \"showKimi\": ").Append(B(ShowKimi)).Append(",\n");
+            sb.Append("  \"showOpenCode\": ").Append(B(ShowOpenCode)).Append(",\n");
             sb.Append("  \"showSystem\": ").Append(B(ShowSystem)).Append(",\n");
             sb.Append("  \"pinCardOnDesktop\": ").Append(B(PinCardOnDesktop)).Append(",\n");
             sb.Append("  \"desktopCardTopMost\": ").Append(B(DesktopCardTopMost)).Append(",\n");

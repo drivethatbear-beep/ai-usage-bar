@@ -10,7 +10,8 @@ namespace AIUsageBar.Providers
     /// <summary>
     /// Grok: subscription limit usage from the resident Grok CLI (<c>_x.ai/billing</c>, the same figure as
     /// grok.com → Usage), plus API-equivalent cost and today's tokens from ~/.grok/sessions/**/usage.json.
-    /// When the limit is unavailable, falls back to the user's weekly budget.
+    /// When the limit is unavailable, falls back to the user's weekly budget. On an X Subscription unified plan Grok,
+    /// Grok Build and Cursor share that one weekly pool, so the item is shown as "Grok · Cursor" with Cursor's tier.
     /// </summary>
     internal sealed class GrokProvider : IUsageProvider, IDisposable
     {
@@ -20,13 +21,16 @@ namespace AIUsageBar.Providers
         private readonly Func<double> _budget;
         private readonly IGrokRpc _rpc;
         private readonly Func<bool> _cliInstalled;
+        private readonly Func<string> _cursorTier;
         private readonly GrokAggregator _agg = new GrokAggregator(Io.ReadShared);
         private GrokBilling _billing;
         private DateTimeOffset _billingAt = DateTimeOffset.MinValue;
         private DateTimeOffset _billingOkAt = DateTimeOffset.MinValue;
 
-        public GrokProvider(string homeDir, Func<double> weeklyBudgetUsd, IGrokRpc rpc = null, Func<bool> cliInstalled = null)
+        public GrokProvider(string homeDir, Func<double> weeklyBudgetUsd, IGrokRpc rpc = null, Func<bool> cliInstalled = null, Func<string> cursorTier = null)
         {
+            // Like cliInstalled: with an injected rpc (tests) the real Cursor database is not consulted.
+            _cursorTier = cursorTier ?? (rpc != null ? (Func<string>)(() => null) : CursorPlan.UnifiedTier);
             var root = Path.Combine(homeDir ?? Io.DefaultHome, ".grok");
             SessionsDir = Path.Combine(root, "sessions");
             var exe = Path.Combine(root, "bin", "grok.exe");
@@ -54,7 +58,8 @@ namespace AIUsageBar.Providers
                     return _agg.Build(now, billing != null ? 0 : _budget());
                 }
             }, ct).ConfigureAwait(false);
-            if (billing == null) return u;
+            var shared = SharedTier();
+            if (billing == null) return Merge(u, shared);
 
             // The subscription limit replaces the budget gauge; the $ figure stays as information.
             var result = new ServiceUsage
@@ -70,7 +75,25 @@ namespace AIUsageBar.Providers
             if (week != null) result.AddDetail("API EQUIV WK", week);
             var today = u.Detail("TODAY");
             if (today != null) result.AddDetail("TODAY", today);
-            return result;
+            return Merge(result, shared);
+        }
+
+        public const string SharedName = "Grok · Cursor";
+
+        private string SharedTier()
+        {
+            try { return _cursorTier(); }
+            catch (Exception ex) when (!(ex is OutOfMemoryException)) { return null; }
+        }
+
+        /// <summary>Marks the item as the shared Grok · Grok Build · Cursor pool when Cursor is on a unified plan.</summary>
+        private static ServiceUsage Merge(ServiceUsage u, string cursorTier)
+        {
+            if (string.IsNullOrEmpty(cursorTier)) return u;
+            u.Service = SharedName;
+            u.Plan = cursorTier;
+            u.AddDetail("SHARED", "Grok · Grok Build · Cursor");
+            return u;
         }
 
         private async Task RefreshBillingAsync(DateTimeOffset now, CancellationToken ct)

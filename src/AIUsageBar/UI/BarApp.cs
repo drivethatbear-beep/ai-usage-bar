@@ -14,7 +14,7 @@ namespace AIUsageBar.UI
     /// </summary>
     internal sealed class BarApp : ApplicationContext
     {
-        private static readonly string[] Order = { "CL", "CX", "GK", "CU", "GM", "KM" };
+        private static readonly string[] Order = { "CL", "CX", "GK", "GM", "KM", "OC" };
 
         private readonly Control _ui = new Control();
         private readonly Dictionary<string, ServiceUsage> _data = new Dictionary<string, ServiceUsage>();
@@ -126,9 +126,9 @@ namespace AIUsageBar.UI
             if (_settings.ShowClaude) list.Add(_data["CL"]);
             if (_settings.ShowCodex) list.Add(_data["CX"]);
             if (_settings.ShowGrok) list.Add(_data["GK"]);
-            if (_settings.ShowCursor) list.Add(_data["CU"]);
             if (_settings.ShowGemini) list.Add(_data["GM"]);
             if (_settings.ShowKimi) list.Add(_data["KM"]);
+            if (_settings.ShowOpenCode) list.Add(_data["OC"]);
             return list;
         }
 
@@ -161,10 +161,10 @@ namespace AIUsageBar.UI
             if (_settings.ShowCodex) providers.Add(new CodexProvider());
             GrokProvider grok = null;
             if (_settings.ShowGrok) providers.Add(grok = new GrokProvider(null, () => _settings.GrokWeeklyBudgetUsd));
-            if (_settings.ShowCursor) providers.Add(new CursorProvider());
             if (_settings.ShowGemini) providers.Add(new GeminiProvider());
             KimiProvider kimi = null;
             if (_settings.ShowKimi) providers.Add(kimi = new KimiProvider());
+            if (_settings.ShowOpenCode) providers.Add(new OpenCodeProvider());
             _scheduler = new Scheduler(providers, () => _settings.RefreshSeconds);
             _scheduler.Updated += u => _ui.BeginInvoke((Action)(() => OnUpdated(u)));
             if (grok != null) _scheduler.Watch(grok.SessionsDir, "usage.json", "GK");
@@ -391,7 +391,7 @@ namespace AIUsageBar.UI
                 }
                 if (!_settings.ShowSystem) _pc = null;
                 else if (_pc == null) SampleSystem();
-                if (old.ShowClaude != _settings.ShowClaude || old.ShowCodex != _settings.ShowCodex || old.ShowGrok != _settings.ShowGrok || old.ShowCursor != _settings.ShowCursor || old.ShowGemini != _settings.ShowGemini || old.ShowKimi != _settings.ShowKimi)
+                if (old.ShowClaude != _settings.ShowClaude || old.ShowCodex != _settings.ShowCodex || old.ShowGrok != _settings.ShowGrok || old.ShowGemini != _settings.ShowGemini || old.ShowKimi != _settings.ShowKimi || old.ShowOpenCode != _settings.ShowOpenCode)
                     StartScheduler();
                 else if (old.GrokWeeklyBudgetUsd != _settings.GrokWeeklyBudgetUsd)
                     _ = _scheduler.RefreshNowAsync();
