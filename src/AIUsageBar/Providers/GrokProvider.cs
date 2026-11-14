@@ -21,7 +21,7 @@ namespace AIUsageBar.Providers
         private readonly Func<double> _budget;
         private readonly IGrokRpc _rpc;
         private readonly Func<bool> _cliInstalled;
-        private readonly Func<string> _cursorTier;
+        private readonly Func<CancellationToken, Task<string>> _cursorTier;
         private readonly GrokAggregator _agg = new GrokAggregator(Io.ReadShared);
         private GrokBilling _billing;
         private DateTimeOffset _billingAt = DateTimeOffset.MinValue;
@@ -29,8 +29,10 @@ namespace AIUsageBar.Providers
 
         public GrokProvider(string homeDir, Func<double> weeklyBudgetUsd, IGrokRpc rpc = null, Func<bool> cliInstalled = null, Func<string> cursorTier = null)
         {
-            // Like cliInstalled: with an injected rpc (tests) the real Cursor database is not consulted.
-            _cursorTier = cursorTier ?? (rpc != null ? (Func<string>)(() => null) : CursorPlan.UnifiedTier);
+            // Like cliInstalled: with an injected rpc (tests) the real Cursor plan is not consulted.
+            if (cursorTier != null) _cursorTier = _ => Task.FromResult(cursorTier());
+            else if (rpc != null) _cursorTier = _ => Task.FromResult<string>(null);
+            else _cursorTier = new CursorPlanSource().TierAsync;
             var root = Path.Combine(homeDir ?? Io.DefaultHome, ".grok");
             SessionsDir = Path.Combine(root, "sessions");
             var exe = Path.Combine(root, "bin", "grok.exe");
@@ -58,7 +60,7 @@ namespace AIUsageBar.Providers
                     return _agg.Build(now, billing != null ? 0 : _budget());
                 }
             }, ct).ConfigureAwait(false);
-            var shared = SharedTier();
+            var shared = await SharedTierAsync(ct).ConfigureAwait(false);
             if (billing == null) return Merge(u, shared);
 
             // The subscription limit replaces the budget gauge; the $ figure stays as information.
@@ -80,10 +82,10 @@ namespace AIUsageBar.Providers
 
         public const string SharedName = "Grok · Cursor";
 
-        private string SharedTier()
+        private async Task<string> SharedTierAsync(CancellationToken ct)
         {
-            try { return _cursorTier(); }
-            catch (Exception ex) when (!(ex is OutOfMemoryException)) { return null; }
+            try { return await _cursorTier(ct).ConfigureAwait(false); }
+            catch (Exception ex) when (!(ex is OutOfMemoryException) && !ct.IsCancellationRequested) { return null; }
         }
 
         /// <summary>Marks the item as the shared Grok · Grok Build · Cursor pool when Cursor is on a unified plan.</summary>

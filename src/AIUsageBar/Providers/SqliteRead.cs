@@ -1,7 +1,11 @@
 using System;
 using System.IO;
+using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using AIUsageBar.Core;
 
 namespace AIUsageBar.Providers
 {
@@ -77,18 +81,43 @@ namespace AIUsageBar.Providers
     /// <summary>
     /// Cursor's plan name. Since SpaceX's Cursor acquisition (Aug 2026) the X Subscription plans give Grok, Grok Build
     /// and Cursor one shared weekly pool, so Cursor's usage is shown inside the Grok item; only the tier is read here
-    /// (<c>cursorAuth/stripeMembershipType</c>, e.g. "unified_ultra").
+    /// (membership type, e.g. "unified_ultra"). See <see cref="CursorPlanSource"/> for where it comes from.
     /// </summary>
     internal static class CursorPlan
     {
         public static string DefaultPath => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Cursor", "User", "globalStorage", "state.vscdb");
 
-        /// <summary>"Ultra" for a unified (shared-pool) membership; null when Cursor is absent or on its own plan.</summary>
-        public static string UnifiedTier()
+        /// <summary>Cursor's locally cached membership (<c>cursorAuth/stripeMembershipType</c>), or null.</summary>
+        public static string LocalMembership() => ReadItem("cursorAuth/stripeMembershipType");
+
+        /// <summary>Cursor's signed-in access token (read-only, never refreshed), or null.</summary>
+        public static string AccessToken() => ReadItem("cursorAuth/accessToken");
+
+        private static string ReadItem(string key)
         {
-            try { return TierFrom(SqliteRead.ItemTableValue(DefaultPath, "cursorAuth/stripeMembershipType")); }
+            try { return SqliteRead.ItemTableValue(DefaultPath, key); }
             catch (Exception ex) when (ex is DllNotFoundException || ex is EntryPointNotFoundException || ex is IOException)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>The user id in a Cursor access token's <c>sub</c> claim ("auth0|user_…" → "user_…"), or null.</summary>
+        public static string UserIdFromJwt(string jwt)
+        {
+            var parts = jwt?.Split('.');
+            if (parts == null || parts.Length < 2) return null;
+            try
+            {
+                var b64 = parts[1].Replace('-', '+').Replace('_', '/');
+                b64 = b64.PadRight(b64.Length + (4 - b64.Length % 4) % 4, '=');
+                var sub = Json.Str(Json.Get(Json.Parse(Encoding.UTF8.GetString(Convert.FromBase64String(b64))), "sub"));
+                if (string.IsNullOrEmpty(sub)) return null;
+                var i = sub.LastIndexOf('|');
+                return i >= 0 ? sub.Substring(i + 1) : sub;
+            }
+            catch (FormatException)
             {
                 return null;
             }
@@ -103,6 +132,84 @@ namespace AIUsageBar.Providers
             if (parts.Length == 0) return null;
             for (var i = 0; i < parts.Length; i++) parts[i] = char.ToUpperInvariant(parts[i][0]) + parts[i].Substring(1).ToLowerInvariant();
             return string.Join(" ", parts);
+        }
+    }
+
+    /// <summary>
+    /// The unified tier, asked from cursor.com. Cursor only rewrites its local copy of the membership when it signs in
+    /// again, so after a move to an X Subscription plan state.vscdb can keep saying "ultra" while the server already
+    /// says "unified_ultra". The server answer is kept for 30 minutes; when it cannot be had (offline, signed out)
+    /// the last server answer is used, and before any, the local value.
+    /// </summary>
+    internal sealed class CursorPlanSource
+    {
+        private const string Url = "https://cursor.com/api/usage-summary";
+        private static readonly TimeSpan Ttl = TimeSpan.FromMinutes(30);
+        private static readonly TimeSpan RetryAfter = TimeSpan.FromMinutes(5);
+
+        private readonly Func<string> _token;
+        private readonly Func<string> _localMembership;
+        private readonly Func<DateTimeOffset> _now;
+        private readonly HttpClient _http;
+        private string _remoteTier;
+        private bool _remoteKnown;
+        private DateTimeOffset _attemptAt = DateTimeOffset.MinValue;
+
+        public CursorPlanSource(Func<string> token = null, Func<string> localMembership = null,
+            HttpMessageHandler handler = null, Func<DateTimeOffset> now = null)
+        {
+            _token = token ?? CursorPlan.AccessToken;
+            _localMembership = localMembership ?? CursorPlan.LocalMembership;
+            _now = now ?? (() => DateTimeOffset.Now);
+            // The session cookie is set by hand (UseCookies=true would drop it) and must not follow a redirect.
+            _http = Io.Client(handler ?? new HttpClientHandler { UseCookies = false, AllowAutoRedirect = false });
+        }
+
+        /// <summary>"Ultra" on a unified (shared-pool) plan; null when Cursor is absent or on its own plan.</summary>
+        public async Task<string> TierAsync(CancellationToken ct)
+        {
+            var now = _now();
+            if (now - _attemptAt >= (_remoteKnown ? Ttl : RetryAfter))
+            {
+                _attemptAt = now;
+                var membership = await RemoteMembershipAsync(ct).ConfigureAwait(false);
+                if (membership != null)
+                {
+                    _remoteTier = CursorPlan.TierFrom(membership);
+                    _remoteKnown = true;
+                }
+            }
+            if (_remoteKnown) return _remoteTier;
+            try { return CursorPlan.TierFrom(_localMembership()); }
+            catch (Exception ex) when (!(ex is OutOfMemoryException)) { return null; }
+        }
+
+        private async Task<string> RemoteMembershipAsync(CancellationToken ct)
+        {
+            string token;
+            try { token = _token(); }
+            catch (Exception ex) when (!(ex is OutOfMemoryException)) { return null; }
+            var uid = CursorPlan.UserIdFromJwt(token);
+            if (string.IsNullOrEmpty(token) || uid == null) return null;
+            try
+            {
+                using (var req = new HttpRequestMessage(HttpMethod.Get, Url))
+                {
+                    req.Headers.TryAddWithoutValidation("Cookie", "WorkosCursorSessionToken=" + uid + "%3A%3A" + token);
+                    req.Headers.TryAddWithoutValidation("Origin", "https://cursor.com");
+                    using (var resp = await _http.SendAsync(req, ct).ConfigureAwait(false))
+                    {
+                        if (!resp.IsSuccessStatusCode || resp.Content == null) return null;
+                        var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                        var m = Json.Str(Json.Get(Json.Parse(body), "membershipType"));
+                        return string.IsNullOrEmpty(m) ? null : m;
+                    }
+                }
+            }
+            catch (Exception ex) when (!(ex is OutOfMemoryException) && !ct.IsCancellationRequested)
+            {
+                return null;
+            }
         }
     }
 }

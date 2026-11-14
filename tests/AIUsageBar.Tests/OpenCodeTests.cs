@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using AIUsageBar.Core;
@@ -154,6 +155,69 @@ namespace AIUsageBar.Tests
         public void Tier_From_Membership(string membership, string expected)
         {
             Assert.Equal(expected, CursorPlan.TierFrom(membership));
+        }
+
+        // A Cursor-style token whose sub claim is "google-oauth2|user_test".
+        private static readonly string Token = "e30." +
+            Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("{\"sub\":\"google-oauth2|user_test\"}")).TrimEnd('=').Replace('+', '-').Replace('/', '_') + ".sig";
+
+        private static FakeHandler Summary(string membership) =>
+            FakeHandler.Status(HttpStatusCode.OK, "{\"membershipType\":\"" + membership + "\",\"limitType\":\"user\"}");
+
+        [Fact]
+        public void User_Id_From_Token()
+        {
+            Assert.Equal("user_test", CursorPlan.UserIdFromJwt(Token));
+            Assert.Null(CursorPlan.UserIdFromJwt("not-a-jwt"));
+            Assert.Null(CursorPlan.UserIdFromJwt(null));
+        }
+
+        [Fact]
+        public async Task Server_Membership_Wins_Over_A_Stale_Local_Copy()
+        {
+            // state.vscdb still says "ultra" after the move to the X Subscription plan; the server knows better.
+            var h = Summary("unified_ultra");
+            var src = new CursorPlanSource(() => Token, () => "ultra", h);
+            Assert.Equal("Ultra", await src.TierAsync(CancellationToken.None));
+            var req = Assert.Single(h.Requests);
+            Assert.Equal("https://cursor.com/api/usage-summary", req.RequestUri.ToString());
+            Assert.Contains("WorkosCursorSessionToken=user_test%3A%3A" + Token, req.Headers.GetValues("Cookie").Single());
+        }
+
+        [Fact]
+        public async Task Server_Says_Own_Plan_Means_No_Shared_Item()
+        {
+            var src = new CursorPlanSource(() => Token, () => "unified_ultra", Summary("ultra"));
+            Assert.Null(await src.TierAsync(CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task Falls_Back_To_Local_Membership_When_Server_Fails()
+        {
+            var src = new CursorPlanSource(() => Token, () => "unified_pro_plus", FakeHandler.Status(HttpStatusCode.Unauthorized));
+            Assert.Equal("Pro Plus", await src.TierAsync(CancellationToken.None));
+            var signedOut = new CursorPlanSource(() => null, () => "unified_ultra", Summary("ultra"));
+            Assert.Equal("Ultra", await signedOut.TierAsync(CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task Server_Answer_Is_Cached_And_Kept_Through_Failures()
+        {
+            var now = DateTimeOffset.Parse("2026-11-14T03:00:00Z");
+            var fail = false;
+            var h = new FakeHandler(_ => fail
+                ? new HttpResponseMessage(HttpStatusCode.InternalServerError)
+                : new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{\"membershipType\":\"unified_ultra\"}") });
+            var src = new CursorPlanSource(() => Token, () => "ultra", h, () => now);
+            Assert.Equal("Ultra", await src.TierAsync(CancellationToken.None));
+            now = now.AddMinutes(10);
+            Assert.Equal("Ultra", await src.TierAsync(CancellationToken.None));
+            Assert.Single(h.Requests);
+
+            fail = true;
+            now = now.AddMinutes(31);
+            Assert.Equal("Ultra", await src.TierAsync(CancellationToken.None));
+            Assert.Equal(2, h.Requests.Count);
         }
 
         [Fact]

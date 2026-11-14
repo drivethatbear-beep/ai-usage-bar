@@ -14,7 +14,7 @@ Windows 작업표시줄 맨 왼쪽에 **Claude · Codex · Grok·Cursor · Gemin
   - Claude: [Claude Code](https://claude.com/claude-code) 로그인 (`%USERPROFILE%\.claude\.credentials.json`)
   - Codex: Codex CLI 로그인 (`%USERPROFILE%\.codex\auth.json`)
   - Grok: Grok CLI 사용 기록 (`%USERPROFILE%\.grok\sessions`)
-  - Cursor: Cursor 앱 로그인 (`%APPDATA%\Cursor\User\globalStorage\state.vscdb`에서 요금제 이름만 읽음, Windows 기본 SQLite로 읽기만 함)
+  - Cursor: Cursor 앱 로그인 (`%APPDATA%\Cursor\User\globalStorage\state.vscdb`의 로그인 정보로 cursor.com에 요금제 이름만 물어봄(30분마다), Windows 기본 SQLite로 읽기만 함)
   - OpenCode Go: OpenCode에서 Go 구독 연결 (`OPENCODE_API_KEY`, `%USERPROFILE%\.local\share\opencode\opencode.db` 또는 같은 폴더의 `auth.json`에서 키를 읽기만 함)
   - Gemini: Google Antigravity 로그인 (Antigravity가 실행 중일 때 갱신)
   - Kimi: Kimi Code 로그인 (`%USERPROFILE%\.kimi-code\credentials`, Kimi Code가 실행 중일 때 갱신)
@@ -61,7 +61,8 @@ Windows 작업표시줄 맨 왼쪽에 **Claude · Codex · Grok·Cursor · Gemin
 ## Grok · Cursor 표시에 대해
 
 - 2026년 8월 SpaceX(SpaceXAI)의 Cursor 인수 뒤 X Subscription 통합 요금제는 Grok 앱 · Grok Build · Cursor가 주간 한도 하나를 같이 씁니다. Cursor가 통합 요금제(`unified_*`)이면 Grok 항목을 **Grok · Cursor**로 보여 주고, 요금제 이름은 Cursor 쪽(예: Ultra)을 씁니다.
-- 별도 Cursor 항목은 없앴습니다. Cursor에서는 요금제 이름만 읽고 사용량 조회는 하지 않습니다.
+- 요금제는 cursor.com 응답(`usage-summary`의 `membershipType`)을 먼저 봅니다. Cursor 앱은 다시 로그인할 때까지 PC에 예전 값(`ultra`)을 그대로 두기도 해서, PC에 저장된 값은 접속이 안 될 때만 씁니다.
+- 별도 Cursor 항목은 없앴습니다. Cursor에서는 요금제 이름만 읽고 사용량은 표시하지 않습니다.
 
 ## OpenCode Go 표시에 대해
 
