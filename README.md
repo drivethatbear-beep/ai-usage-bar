@@ -31,7 +31,7 @@ Windows 작업표시줄 맨 왼쪽에 **Claude · Codex · Grok·Cursor · Gemin
 |---|---|
 | 고리 색 | 서비스: Claude 주황 · Codex 초록 · Grok·Cursor 검정(다크 모드 흰색) · Gemini 하늘색 · OpenCode 주황, 파란 `CPU`·`RAM`은 이 PC |
 | 고리 | 가장 빠듯한 한도의 **남은** 양 |
-| `89 · 30` | 한도별 **남은** % (Claude는 5시간 · 주간, Gemini는 Antigravity 전체 한 개, OpenCode Go는 5시간 · 주간(월간은 상세 카드), Codex·Grok은 주간) |
+| `89 · 30` | 한도별 **남은** % (Claude는 5시간 · 주간, Gemini는 Gemini 모델 한도 한 개, OpenCode Go는 5시간 · 주간(월간은 상세 카드), Codex·Grok은 주간) |
 | `20:09` / `10/7` | 리셋 시각 (24시간 이내면 시:분, 아니면 월/일) |
 | 주황색 숫자 | 남은 양 20% 이하 |
 | 빨간색(고리 깜빡임) | 남은 양 5% 미만 |
@@ -70,8 +70,8 @@ Windows 작업표시줄 맨 왼쪽에 **Claude · Codex · Grok·Cursor · Gemin
 
 ## Gemini 표시에 대해
 
-- 작업표시줄에는 **Antigravity 전체 잔여 %** 하나만 표시합니다: Gemini 모델 한도와 Antigravity 안의 Claude·GPT 모델 한도의 남은 양을 평균한 값이고, 리셋은 사용한 한도 중 가장 먼저 초기화되는 시각입니다.
-- 상세 카드에는 전체 · Gemini 모델 · Claude·GPT 모델을 따로 보여 줍니다(각 한도는 가장 많이 쓴 모델 기준, Antigravity의 모델 선택 화면과 같은 값).
+- 작업표시줄에는 **Gemini 모델 한도의 남은 %** 하나와 그 리셋 시각만 표시합니다.
+- 상세 카드에는 Gemini 모델 · Claude·GPT 모델(Antigravity 안의 다른 회사 모델) 한도를 따로 보여 줍니다(각 한도는 가장 많이 쓴 모델 기준, Antigravity의 모델 선택 화면과 같은 값).
 - 이 PC에서 실행 중인 Antigravity에게만 물어봅니다(127.0.0.1). 토큰 파일을 읽지 않고, 외부로 직접 접속하지 않습니다.
 - Antigravity가 꺼져 있으면 마지막 값을 흐리게 보여 주고, 켜면 다시 갱신됩니다.
 

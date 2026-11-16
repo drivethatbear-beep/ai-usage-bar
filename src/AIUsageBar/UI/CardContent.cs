@@ -60,7 +60,6 @@ namespace AIUsageBar.UI
                 case "DY": return "일간";
                 case "TOT": return "월간 전체";
                 case "API": return "월간 API";
-                case "ALL": return "전체";
                 case "GEM": return "Gemini 모델";
                 case "3P": return "Claude·GPT 모델";
                 default: return label;

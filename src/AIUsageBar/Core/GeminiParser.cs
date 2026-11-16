@@ -7,8 +7,8 @@ namespace AIUsageBar.Core
     /// <summary>
     /// Maps Antigravity's GetUserStatus to a ServiceUsage. Each model carries a quota (remaining fraction and reset
     /// time); models share pools, so the Gemini models become one window ("GEM") and the other providers' models
-    /// offered in Antigravity (Claude, GPT-OSS) another ("3P"), each showing its tightest model. An overall window
-    /// ("ALL") comes first: the bar shows only that one, the card all three.
+    /// offered in Antigravity (Claude, GPT-OSS) another ("3P"), each showing its tightest model. The bar shows only
+    /// the Gemini pool, the card both.
     /// </summary>
     internal static class GeminiParser
     {
@@ -39,31 +39,9 @@ namespace AIUsageBar.Core
                     if (IsGemini(m)) gemini = Tighter(gemini, w, "GEM");
                     else other = Tighter(other, w, "3P");
                 }
-            var all = Overall(gemini, other);
-            if (all != null) u.Windows.Add(all);
             if (gemini != null) u.Windows.Add(gemini);
             if (other != null) u.Windows.Add(other);
             return u;
-        }
-
-        /// <summary>
-        /// Antigravity as a whole ("ALL", what the bar shows): the pools' remaining averaged, resetting when the
-        /// first pool that has been used comes back. Null without any pool; the pool itself when there is one.
-        /// </summary>
-        internal static UsageWindow Overall(params UsageWindow[] pools)
-        {
-            var list = new List<UsageWindow>();
-            foreach (var p in pools) if (p != null) list.Add(p);
-            if (list.Count == 0) return null;
-            double used = 0;
-            DateTimeOffset? reset = null, anyReset = null;
-            foreach (var p in list)
-            {
-                used += p.UsedPercent;
-                if (p.ResetsAt.HasValue && (anyReset == null || p.ResetsAt < anyReset)) anyReset = p.ResetsAt;
-                if (p.UsedPercent > 0 && p.ResetsAt.HasValue && (reset == null || p.ResetsAt < reset)) reset = p.ResetsAt;
-            }
-            return new UsageWindow { Label = "ALL", UsedPercent = used / list.Count, ResetsAt = reset ?? anyReset };
         }
 
         private static bool IsGemini(object model)
