@@ -17,7 +17,6 @@ namespace AIUsageBar.UI
         public static readonly Color Codex = Color.FromArgb(0x10, 0xA3, 0x7F);
         public static readonly Color OpenCode = Color.FromArgb(0xF2, 0x8C, 0x28);
         public static readonly Color Gemini = Color.FromArgb(0x47, 0x96, 0xE3);
-        public static readonly Color Kimi = Color.FromArgb(0xE0, 0x4F, 0x8C);
         public static readonly Color Accent = Color.FromArgb(0x0A, 0x84, 0xFF);
 
         // After the colour constants: static fields initialise in declaration order.
@@ -60,7 +59,6 @@ namespace AIUsageBar.UI
                 case "GK": return Label;
                 case "OC": return OpenCode;
                 case "GM": return Gemini;
-                case "KM": return Kimi;
                 case "PC": return PcAccent;
                 default: return Label;
             }

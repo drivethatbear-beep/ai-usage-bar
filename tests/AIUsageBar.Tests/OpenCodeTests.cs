@@ -127,7 +127,7 @@ namespace AIUsageBar.Tests
         {
             var st = AppleStyle.For(true);
             var oc = st.ServiceColor("OC");
-            foreach (var other in new[] { "CL", "CX", "GK", "GM", "KM", "PC" })
+            foreach (var other in new[] { "CL", "CX", "GK", "GM", "PC" })
                 Assert.NotEqual(st.ServiceColor(other), oc);
         }
 

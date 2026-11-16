@@ -23,17 +23,54 @@ namespace AIUsageBar.Tests
             Assert.Equal("GM", u.Tag);
             Assert.Equal(ServiceStatus.Ok, u.Status);
             Assert.Equal("Google AI Pro", u.Plan);
-            Assert.Equal(2, u.Windows.Count);
+            Assert.Equal(3, u.Windows.Count);
 
-            var gem = u.Windows[0];
+            var all = u.Windows[0];
+            Assert.Equal("ALL", all.Label);
+            Assert.Equal((58 + 25) / 2.0, all.UsedPercent, 1); // Antigravity as a whole: 58.5 % left
+            Assert.Equal(DateTimeOffset.Parse("2026-10-12T05:29:18Z"), all.ResetsAt); // first used pool to reset
+
+            var gem = u.Windows[1];
             Assert.Equal("GEM", gem.Label);
             Assert.Equal(58, gem.UsedPercent, 1); // the tightest Gemini model: 42 % left
             Assert.Equal(DateTimeOffset.Parse("2026-10-12T05:29:18Z"), gem.ResetsAt);
 
-            var other = u.Windows[1];
+            var other = u.Windows[2];
             Assert.Equal("3P", other.Label);
             Assert.Equal(25, other.UsedPercent, 1);
             Assert.Equal(DateTimeOffset.Parse("2026-10-12T05:40:27Z"), other.ResetsAt);
+        }
+
+        [Fact]
+        public void Overall_Averages_The_Pools_And_Resets_With_The_First_Used_One()
+        {
+            var gem = new UsageWindow { Label = "GEM", UsedPercent = 24, ResetsAt = DateTimeOffset.Parse("2026-11-16T09:00:21Z") };
+            var full = new UsageWindow { Label = "3P", UsedPercent = 0, ResetsAt = DateTimeOffset.Parse("2026-11-16T08:20:06Z") };
+            var all = GeminiParser.Overall(gem, full);
+            Assert.Equal("ALL", all.Label);
+            Assert.Equal(12, all.UsedPercent, 1); // 88 % of Antigravity left
+            Assert.Equal(gem.ResetsAt, all.ResetsAt); // the untouched pool's reset changes nothing
+
+            Assert.Equal(24, GeminiParser.Overall(gem, null).UsedPercent, 1);
+            Assert.Null(GeminiParser.Overall(null, null));
+            var unused = GeminiParser.Overall(new UsageWindow { ResetsAt = gem.ResetsAt }, full);
+            Assert.Equal(full.ResetsAt, unused.ResetsAt); // nothing used: the earliest reset
+        }
+
+        [Fact]
+        public void Bar_Shows_Only_The_Overall_Window()
+        {
+            var u = GeminiParser.Parse(Samples.Read("gemini_status.json"), Now);
+            var bar = BarRenderer.BarWindows(u);
+            Assert.Single(bar);
+            Assert.Equal("ALL", bar[0].Label);
+            Assert.Equal(new[] { "전체", "Gemini 모델", "Claude·GPT 모델" }, CardContent.Build(new[] { u }, Now)[0].Rows.Select(r => r.Window));
+
+            var claude = new ServiceUsage { Tag = "CL" };
+            claude.Windows.Add(new UsageWindow { Label = "5H" });
+            claude.Windows.Add(new UsageWindow { Label = "WK" });
+            claude.Windows.Add(new UsageWindow { Label = "X" });
+            Assert.Equal(new[] { "5H", "WK" }, BarRenderer.BarWindows(claude).Select(w => w.Label));
         }
 
         [Fact]
@@ -43,8 +80,8 @@ namespace AIUsageBar.Tests
             var json = "{\"userStatus\":{\"cascadeModelConfigData\":{\"clientModelConfigs\":[" +
                        "{\"modelId\":\"gemini-3.8-flash-high\",\"quotaInfo\":{\"resetTime\":\"2026-10-12T05:29:18Z\"}}]}}}";
             var u = GeminiParser.Parse(json, Now);
-            Assert.Single(u.Windows);
-            Assert.Equal(100, u.Windows[0].UsedPercent, 1);
+            Assert.Equal(2, u.Windows.Count); // overall + the Gemini pool
+            Assert.All(u.Windows, w => Assert.Equal(100, w.UsedPercent, 1));
         }
 
         [Fact]
@@ -84,7 +121,7 @@ namespace AIUsageBar.Tests
             var u = await p.FetchAsync(CancellationToken.None);
 
             Assert.Equal(ServiceStatus.Ok, u.Status);
-            Assert.Equal(2, u.Windows.Count);
+            Assert.Equal(3, u.Windows.Count);
             var req = h.Requests.Last();
             Assert.Equal(HttpMethod.Post, req.Method);
             Assert.Equal("https://127.0.0.1:2222/exa.language_server_pb.LanguageServerService/GetUserStatus", req.RequestUri.ToString());

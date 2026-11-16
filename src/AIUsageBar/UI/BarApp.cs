@@ -14,7 +14,7 @@ namespace AIUsageBar.UI
     /// </summary>
     internal sealed class BarApp : ApplicationContext
     {
-        private static readonly string[] Order = { "CL", "CX", "GK", "GM", "KM", "OC" };
+        private static readonly string[] Order = { "CL", "CX", "GK", "GM", "OC" };
 
         private readonly Control _ui = new Control();
         private readonly Dictionary<string, ServiceUsage> _data = new Dictionary<string, ServiceUsage>();
@@ -127,7 +127,6 @@ namespace AIUsageBar.UI
             if (_settings.ShowCodex) list.Add(_data["CX"]);
             if (_settings.ShowGrok) list.Add(_data["GK"]);
             if (_settings.ShowGemini) list.Add(_data["GM"]);
-            if (_settings.ShowKimi) list.Add(_data["KM"]);
             if (_settings.ShowOpenCode) list.Add(_data["OC"]);
             return list;
         }
@@ -162,14 +161,10 @@ namespace AIUsageBar.UI
             GrokProvider grok = null;
             if (_settings.ShowGrok) providers.Add(grok = new GrokProvider(null, () => _settings.GrokWeeklyBudgetUsd));
             if (_settings.ShowGemini) providers.Add(new GeminiProvider());
-            KimiProvider kimi = null;
-            if (_settings.ShowKimi) providers.Add(kimi = new KimiProvider());
             if (_settings.ShowOpenCode) providers.Add(new OpenCodeProvider());
             _scheduler = new Scheduler(providers, () => _settings.RefreshSeconds);
             _scheduler.Updated += u => _ui.BeginInvoke((Action)(() => OnUpdated(u)));
             if (grok != null) _scheduler.Watch(grok.SessionsDir, "usage.json", "GK");
-            // Kimi Code rewrites its credentials on each token refresh: poll right away instead of waiting a cycle.
-            if (kimi != null) _scheduler.Watch(kimi.CredentialsDir, "*.json", "KM");
             _scheduler.Start();
         }
 
@@ -391,7 +386,7 @@ namespace AIUsageBar.UI
                 }
                 if (!_settings.ShowSystem) _pc = null;
                 else if (_pc == null) SampleSystem();
-                if (old.ShowClaude != _settings.ShowClaude || old.ShowCodex != _settings.ShowCodex || old.ShowGrok != _settings.ShowGrok || old.ShowGemini != _settings.ShowGemini || old.ShowKimi != _settings.ShowKimi || old.ShowOpenCode != _settings.ShowOpenCode)
+                if (old.ShowClaude != _settings.ShowClaude || old.ShowCodex != _settings.ShowCodex || old.ShowGrok != _settings.ShowGrok || old.ShowGemini != _settings.ShowGemini || old.ShowOpenCode != _settings.ShowOpenCode)
                     StartScheduler();
                 else if (old.GrokWeeklyBudgetUsd != _settings.GrokWeeklyBudgetUsd)
                     _ = _scheduler.RefreshNowAsync();

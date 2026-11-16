@@ -45,7 +45,6 @@ namespace AIUsageBar.UI
                 case "GK": return "Grok";
                 case "OC": return "OpenCode";
                 case "GM": return "Gemini";
-                case "KM": return "Kimi";
                 case "PC": return "PC";
                 default: return tag ?? "";
             }
@@ -61,6 +60,7 @@ namespace AIUsageBar.UI
                 case "DY": return "일간";
                 case "TOT": return "월간 전체";
                 case "API": return "월간 API";
+                case "ALL": return "전체";
                 case "GEM": return "Gemini 모델";
                 case "3P": return "Claude·GPT 모델";
                 default: return label;
@@ -92,7 +92,7 @@ namespace AIUsageBar.UI
                     s.NoticeKind = NoticeKind.Warning;
                     break;
                 case ServiceStatus.Error when u.Error == "NOT RUNNING":
-                    s.Notice = (u.Tag == "KM" ? "Kimi Code" : "Antigravity") + "를 켜면 갱신돼요";
+                    s.Notice = "Antigravity를 켜면 갱신돼요";
                     s.NoticeKind = NoticeKind.Muted;
                     break;
                 case ServiceStatus.Error:

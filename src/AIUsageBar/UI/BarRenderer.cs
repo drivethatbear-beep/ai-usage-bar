@@ -174,6 +174,16 @@ namespace AIUsageBar.UI
             return Math.Max(svc, pc);
         }
 
+        /// <summary>
+        /// The windows a service shows on the bar: an overall window ("ALL", e.g. Gemini in Antigravity) alone,
+        /// otherwise the first two.
+        /// </summary>
+        internal static List<UsageWindow> BarWindows(ServiceUsage u)
+        {
+            var all = u.Windows.Find(w => w.Label == "ALL");
+            return all != null ? new List<UsageWindow> { all } : u.Windows.GetRange(0, Math.Min(2, u.Windows.Count));
+        }
+
         /// <summary>One service. Measures when <paramref name="g"/> is null, draws otherwise; returns the width.</summary>
         private float Block(Graphics g, float x0, float mid, ServiceUsage u, DateTimeOffset now, bool blink)
         {
@@ -182,7 +192,7 @@ namespace AIUsageBar.UI
             Color Dim(Color c) => stale ? Color.FromArgb(c.A / 2, c) : c;
 
             var windows = u.Status == ServiceStatus.Ok || u.Status == ServiceStatus.Error
-                ? u.Windows.GetRange(0, Math.Min(2, u.Windows.Count)) : new List<UsageWindow>();
+                ? BarWindows(u) : new List<UsageWindow>();
 
             // Ring: the tightest window decides the arc and its colour; a critical arc blinks.
             UsageWindow tight = null;
