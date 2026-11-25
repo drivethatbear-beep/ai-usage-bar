@@ -23,6 +23,7 @@ namespace AIUsageBar.Providers
     internal sealed class GeminiProvider : IUsageProvider
     {
         private const string Path_ = "/exa.language_server_pb.LanguageServerService/GetUserStatus";
+        private const string SummaryPath = "/exa.language_server_pb.LanguageServerService/RetrieveUserQuotaSummary";
         private const string Body = "{\"metadata\":{\"ideName\":\"antigravity\",\"extensionName\":\"antigravity\",\"locale\":\"en\"}}";
         private static readonly TimeSpan CliMinInterval = TimeSpan.FromMinutes(5);
 
@@ -32,6 +33,7 @@ namespace AIUsageBar.Providers
         private readonly HttpClient _http;
         private ServiceUsage _lastCli;
         private DateTimeOffset _lastCliAt = DateTimeOffset.MinValue;
+        private string _lastPlan;
 
         public GeminiProvider(
             Func<AntigravityServer.Endpoint> find = null,
@@ -75,23 +77,27 @@ namespace AIUsageBar.Providers
                 {
                     try
                     {
-                        using (var req = new HttpRequestMessage(HttpMethod.Post, "https://127.0.0.1:" + port + Path_))
+                        var (sumStatus, sumBody) = await PostAsync(port, ep.Csrf, SummaryPath, ct).ConfigureAwait(false);
+                        var summaryUsage = sumStatus >= 200 && sumStatus <= 299
+                            ? GeminiParser.ParseSummary(sumBody, _lastPlan, DateTimeOffset.Now)
+                            : null;
+                        if (summaryUsage != null && _lastPlan != null) return summaryUsage;
+
+                        var (status, body) = await PostAsync(port, ep.Csrf, Path_, ct).ConfigureAwait(false);
+                        if (status < 200 || status > 299)
                         {
-                            req.Headers.TryAddWithoutValidation("X-Codeium-Csrf-Token", ep.Csrf);
-                            req.Headers.TryAddWithoutValidation("Connect-Protocol-Version", "1");
-                            req.Content = new StringContent(Body, Encoding.UTF8, "application/json");
-                            using (var resp = await _http.SendAsync(req, ct).ConfigureAwait(false))
-                            {
-                                var status = (int)resp.StatusCode;
-                                if (status < 200 || status > 299)
-                                {
-                                    failure = Io.Failure("Gemini", Tag, status);
-                                    continue; // the other port is the extension server
-                                }
-                                var body = resp.Content == null ? "" : await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                                return GeminiParser.Parse(body, DateTimeOffset.Now);
-                            }
+                            if (summaryUsage != null) return summaryUsage;
+                            failure = Io.Failure("Gemini", Tag, status);
+                            continue; // the other port is the extension server
                         }
+                        var statusUsage = GeminiParser.Parse(body, DateTimeOffset.Now);
+                        if (!string.IsNullOrEmpty(statusUsage.Plan)) _lastPlan = statusUsage.Plan;
+                        if (summaryUsage != null)
+                        {
+                            summaryUsage.Plan = _lastPlan;
+                            return summaryUsage;
+                        }
+                        return statusUsage;
                     }
                     catch (Exception ex) when (ex is HttpRequestException || ex is TaskCanceledException || ex is FormatException)
                     {
@@ -109,6 +115,21 @@ namespace AIUsageBar.Providers
                 : new ServiceUsage { Service = "Gemini", Tag = Tag, Status = ServiceStatus.NotInstalled };
         }
 
+        private async Task<(int status, string body)> PostAsync(int port, string csrf, string path, CancellationToken ct)
+        {
+            using (var req = new HttpRequestMessage(HttpMethod.Post, "https://127.0.0.1:" + port + path))
+            {
+                req.Headers.TryAddWithoutValidation("X-Codeium-Csrf-Token", csrf);
+                req.Headers.TryAddWithoutValidation("Connect-Protocol-Version", "1");
+                req.Content = new StringContent(Body, Encoding.UTF8, "application/json");
+                using (var resp = await _http.SendAsync(req, ct).ConfigureAwait(false))
+                {
+                    var body = resp.Content == null ? "" : await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    return ((int)resp.StatusCode, body);
+                }
+            }
+        }
+
         private async Task<ServiceUsage> FromCliAsync(CancellationToken ct)
         {
             if (_cliUsage == null) return null;
@@ -120,6 +141,7 @@ namespace AIUsageBar.Providers
                 if (string.IsNullOrEmpty(raw)) return null;
                 var parsed = GeminiParser.ParseCli(raw, DateTimeOffset.Now);
                 if (parsed == null) return null;
+                if (parsed.Plan == null) parsed.Plan = _lastPlan;
                 _lastCli = parsed;
                 _lastCliAt = DateTimeOffset.Now;
                 return parsed;

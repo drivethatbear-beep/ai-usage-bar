@@ -175,13 +175,17 @@ namespace AIUsageBar.UI
         }
 
         /// <summary>
-        /// The windows a service shows on the bar: Gemini shows its own pool ("GEM") alone (Antigravity's Claude·GPT
-        /// pool stays on the card), every other service its first two.
+        /// The windows a service shows on the bar: Gemini shows its own 5-hour and weekly pools (Antigravity's
+        /// Claude·GPT pool stays on the card), every other service its first two.
         /// </summary>
         internal static List<UsageWindow> BarWindows(ServiceUsage u)
         {
-            var gem = u.Tag == "GM" ? u.Windows.Find(w => w.Label == "GEM") : null;
-            return gem != null ? new List<UsageWindow> { gem } : u.Windows.GetRange(0, Math.Min(2, u.Windows.Count));
+            if (u.Tag == "GM")
+            {
+                var own = u.Windows.FindAll(w => w.Label != "3P");
+                if (own.Count > 0) return own.GetRange(0, Math.Min(2, own.Count));
+            }
+            return u.Windows.GetRange(0, Math.Min(2, u.Windows.Count));
         }
 
         /// <summary>One service. Measures when <paramref name="g"/> is null, draws otherwise; returns the width.</summary>

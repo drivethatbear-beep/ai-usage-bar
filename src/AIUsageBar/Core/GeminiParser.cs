@@ -38,6 +38,16 @@ namespace AIUsageBar.Core
             return u;
         }
 
+        /// <summary>Maps Antigravity's <c>RetrieveUserQuotaSummary</c> (5-hour + weekly buckets) to a ServiceUsage.</summary>
+        public static ServiceUsage ParseSummary(string json, string plan, DateTimeOffset now)
+        {
+            Dictionary<string, object> root;
+            try { root = Json.Parse(json) as Dictionary<string, object>; }
+            catch (FormatException) { return null; }
+            if (!(Json.Get(root, "response.groups") is List<object> groups)) return null;
+            return ParseGroups(groups, plan, now, camelCase: true);
+        }
+
         /// <summary>Maps <c>agy -p "/usage" --output-format json</c> output to a ServiceUsage when desktop Antigravity is closed.</summary>
         public static ServiceUsage ParseCli(string json, DateTimeOffset now)
         {
@@ -46,36 +56,61 @@ namespace AIUsageBar.Core
             catch (FormatException) { return null; }
             if (root == null || Json.Str(Json.Get(root, "status")) != "SUCCESS") return null;
             if (!(Json.Get(root, "command.data.groups") is List<object> groups)) return null;
+            return ParseGroups(groups, null, now, camelCase: false);
+        }
 
-            UsageWindow gemini = null, other = null;
+        private static ServiceUsage ParseGroups(List<object> groups, string plan, DateTimeOffset now, bool camelCase)
+        {
+            var nameKey = camelCase ? "displayName" : "name";
+            var idKey = camelCase ? "bucketId" : "id";
+            var fracKey = camelCase ? "remainingFraction" : "remaining_fraction";
+            var resetKey = camelCase ? "resetTime" : "reset_time";
+
+            UsageWindow gem5h = null, gemWk = null, gemOther = null, thirdParty = null;
             foreach (var g in groups)
             {
-                var groupIsGemini = (Json.Str(Json.Get(g, "name")) ?? "").StartsWith("Gemini", StringComparison.OrdinalIgnoreCase);
+                var groupIsGemini = (Json.Str(Json.Get(g, nameKey)) ?? "").StartsWith("Gemini", StringComparison.OrdinalIgnoreCase);
                 if (!(Json.Get(g, "buckets") is List<object> buckets)) continue;
                 foreach (var b in buckets)
                 {
                     if (!(b is Dictionary<string, object> bucket)) continue;
-                    var w = WindowFrom(bucket, "remaining_fraction", "reset_time");
-                    var id = Json.Str(Json.Get(bucket, "id")) ?? "";
+                    var w = WindowFrom(bucket, fracKey, resetKey);
+                    var id = Json.Str(Json.Get(bucket, idKey)) ?? "";
+                    var win = Json.Str(Json.Get(bucket, "window")) ?? "";
                     if (groupIsGemini || id.StartsWith("gemini", StringComparison.OrdinalIgnoreCase))
-                        gemini = Tighter(gemini, w, "GEM");
+                    {
+                        if (IsFiveHour(win, id)) gem5h = Tighter(gem5h, w, "5H");
+                        else if (IsWeekly(win, id)) gemWk = Tighter(gemWk, w, "WK");
+                        else gemOther = Tighter(gemOther, w, "GEM");
+                    }
                     else
-                        other = Tighter(other, w, "3P");
+                    {
+                        thirdParty = Tighter(thirdParty, w, "3P");
+                    }
                 }
             }
-            if (gemini == null && other == null) return null;
+            if (gem5h == null && gemWk == null && gemOther == null && thirdParty == null) return null;
 
             var u = new ServiceUsage
             {
                 Service = "Gemini",
                 Tag = "GM",
                 Status = ServiceStatus.Ok,
+                Plan = plan,
                 LastSuccess = now,
             };
-            if (gemini != null) u.Windows.Add(gemini);
-            if (other != null) u.Windows.Add(other);
+            if (gem5h != null) u.Windows.Add(gem5h);
+            if (gemWk != null) u.Windows.Add(gemWk);
+            if (gem5h == null && gemWk == null && gemOther != null) u.Windows.Add(gemOther);
+            if (thirdParty != null) u.Windows.Add(thirdParty);
             return u;
         }
+
+        private static bool IsFiveHour(string window, string id) =>
+            window.Equals("5h", StringComparison.OrdinalIgnoreCase) || id.EndsWith("-5h", StringComparison.OrdinalIgnoreCase);
+
+        private static bool IsWeekly(string window, string id) =>
+            window.Equals("weekly", StringComparison.OrdinalIgnoreCase) || id.EndsWith("-weekly", StringComparison.OrdinalIgnoreCase);
 
         private static UsageWindow WindowFrom(Dictionary<string, object> quota, string fractionKey, string resetKey)
         {

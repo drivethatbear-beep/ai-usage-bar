@@ -31,7 +31,7 @@ Windows 작업표시줄 맨 왼쪽에 **Claude · Codex · Grok·Cursor · Gemin
 |---|---|
 | 고리 색 | 서비스: Claude 주황 · Codex 초록 · Grok·Cursor 검정(다크 모드 흰색) · Gemini 하늘색 · OpenCode 주황, 파란 `CPU`·`RAM`은 이 PC |
 | 고리 | 가장 빠듯한 한도의 **남은** 양 |
-| `89 · 30` | 한도별 **남은** % (Claude는 5시간 · 주간, Gemini는 Gemini 모델 한도 한 개, OpenCode Go는 5시간 · 주간(월간은 상세 카드), Codex·Grok은 주간) |
+| `89 · 30` | 한도별 **남은** % (Claude · Gemini는 5시간 · 주간, OpenCode Go는 5시간 · 주간(월간은 상세 카드), Codex·Grok은 주간) |
 | `20:09` / `10/7` | 리셋 시각 (24시간 이내면 시:분, 아니면 월/일) |
 | 주황색 숫자 | 남은 양 20% 이하 |
 | 빨간색(고리 깜빡임) | 남은 양 5% 미만 |
@@ -70,8 +70,8 @@ Windows 작업표시줄 맨 왼쪽에 **Claude · Codex · Grok·Cursor · Gemin
 
 ## Gemini 표시에 대해
 
-- 작업표시줄에는 **Gemini 모델 한도의 남은 %** 하나와 그 리셋 시각만 표시합니다.
-- 상세 카드에는 Gemini 모델 · Claude·GPT 모델(Antigravity 안의 다른 회사 모델) 한도를 따로 보여 줍니다(각 한도는 가장 많이 쓴 모델 기준, Antigravity의 모델 선택 화면과 같은 값).
+- 작업표시줄에는 Gemini 모델의 **5시간 · 주간 한도 남은 %** 두 개와 다음 리셋 시각을 표시합니다.
+- 상세 카드에는 Gemini 모델(5시간 · 주간)과 Claude·GPT 모델(Antigravity 안의 다른 회사 모델) 한도를 따로 보여 줍니다.
 - 이 PC에서 실행 중인 Antigravity 로컬 서버(`127.0.0.1`, hub 데몬 포함)에 먼저 물어보고, 데스크톱 앱이 꺼져 있으면 로컬 `agy` CLI(`agy -p "/usage" --output-format json`, 토큰 소모 0)로 조회합니다.
 
 ## Grok 표시에 대해

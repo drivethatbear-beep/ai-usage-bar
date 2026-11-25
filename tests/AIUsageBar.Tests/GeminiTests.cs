@@ -121,8 +121,28 @@ namespace AIUsageBar.Tests
         }
 
         [Fact]
-        public void ParseCli_Extracts_Tightest_Gemini_And_ThirdParty_Buckets()
+        public void ParseSummary_And_ParseCli_Keep_Both_FiveHour_And_Weekly_Windows()
         {
+            var summaryJson = "{\"response\":{\"groups\":[" +
+                "{\"displayName\":\"Gemini Models\",\"buckets\":[" +
+                "{\"bucketId\":\"gemini-weekly\",\"window\":\"weekly\",\"remainingFraction\":0.915,\"resetTime\":\"2026-12-01T02:00:32Z\"}," +
+                "{\"bucketId\":\"gemini-5h\",\"window\":\"5h\",\"remainingFraction\":0.817,\"resetTime\":\"2026-11-25T07:51:15Z\"}]}," +
+                "{\"displayName\":\"Claude and GPT models\",\"buckets\":[" +
+                "{\"bucketId\":\"3p-weekly\",\"window\":\"weekly\",\"remainingFraction\":0.984,\"resetTime\":\"2026-11-25T09:35:40Z\"}," +
+                "{\"bucketId\":\"3p-5h\",\"window\":\"5h\",\"remainingFraction\":1,\"resetTime\":\"2026-11-25T11:14:15Z\"}]}]}}";
+
+            var s = GeminiParser.ParseSummary(summaryJson, "Google AI Ultra", Now);
+            Assert.NotNull(s);
+            Assert.Equal("Google AI Ultra", s.Plan);
+            Assert.Equal(new[] { "5H", "WK", "3P" }, s.Windows.Select(w => w.Label));
+            Assert.Equal(18.3, s.Windows[0].UsedPercent, 1);
+            Assert.Equal(8.5, s.Windows[1].UsedPercent, 1);
+            Assert.Equal(1.6, s.Windows[2].UsedPercent, 1);
+
+            // Bar shows Gemini 5H · WK (like Claude), leaving 3P for the card.
+            Assert.Equal(new[] { "5H", "WK" }, BarRenderer.BarWindows(s).Select(w => w.Label));
+            Assert.Equal(new[] { "5시간", "주간", "Claude·GPT 모델" }, CardContent.Build(new[] { s }, Now)[0].Rows.Select(r => r.Window));
+
             var cliJson = "{\"status\":\"SUCCESS\",\"command\":{\"name\":\"usage\",\"data\":{\"groups\":[" +
                 "{\"name\":\"Gemini Models\",\"buckets\":[" +
                 "{\"id\":\"gemini-weekly\",\"window\":\"weekly\",\"remaining_fraction\":0.92,\"reset_time\":\"2026-10-18T02:00:32Z\"}," +
@@ -135,13 +155,40 @@ namespace AIUsageBar.Tests
             Assert.NotNull(u);
             Assert.Equal("GM", u.Tag);
             Assert.Equal(ServiceStatus.Ok, u.Status);
-            Assert.Equal(2, u.Windows.Count);
-            Assert.Equal("GEM", u.Windows[0].Label);
-            Assert.Equal(8, u.Windows[0].UsedPercent, 1);
-            Assert.Equal(DateTimeOffset.Parse("2026-10-18T02:00:32Z"), u.Windows[0].ResetsAt);
-            Assert.Equal("3P", u.Windows[1].Label);
-            Assert.Equal(15, u.Windows[1].UsedPercent, 1);
-            Assert.Equal(DateTimeOffset.Parse("2026-10-15T09:35:40Z"), u.Windows[1].ResetsAt);
+            Assert.Equal(new[] { "5H", "WK", "3P" }, u.Windows.Select(w => w.Label));
+            Assert.Equal(1, u.Windows[0].UsedPercent, 1);
+            Assert.Equal(DateTimeOffset.Parse("2026-10-12T06:00:00Z"), u.Windows[0].ResetsAt);
+            Assert.Equal(8, u.Windows[1].UsedPercent, 1);
+            Assert.Equal(DateTimeOffset.Parse("2026-10-18T02:00:32Z"), u.Windows[1].ResetsAt);
+            Assert.Equal(15, u.Windows[2].UsedPercent, 1);
+            Assert.Equal(DateTimeOffset.Parse("2026-10-15T09:35:40Z"), u.Windows[2].ResetsAt);
+        }
+
+        [Fact]
+        public async Task Fetch_Combines_Plan_From_GetUserStatus_With_5H_And_Weekly_From_QuotaSummary()
+        {
+            var summaryJson = "{\"response\":{\"groups\":[" +
+                "{\"displayName\":\"Gemini Models\",\"buckets\":[" +
+                "{\"bucketId\":\"gemini-weekly\",\"window\":\"weekly\",\"remainingFraction\":0.90,\"resetTime\":\"2026-12-01T02:00:32Z\"}," +
+                "{\"bucketId\":\"gemini-5h\",\"window\":\"5h\",\"remainingFraction\":0.80,\"resetTime\":\"2026-11-25T07:51:15Z\"}]}]}}";
+            var h = new FakeHandler(req =>
+            {
+                if (req.RequestUri.Port != 2222) return new HttpResponseMessage(HttpStatusCode.NotFound);
+                if (req.RequestUri.AbsolutePath.EndsWith("/GetUserStatus", StringComparison.Ordinal))
+                    return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(Samples.Read("gemini_status.json")) };
+                if (req.RequestUri.AbsolutePath.EndsWith("/RetrieveUserQuotaSummary", StringComparison.Ordinal))
+                    return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(summaryJson) };
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            });
+            var p = new GeminiProvider(() => new AntigravityServer.Endpoint("tok-1", new[] { 2222 }), () => true, h);
+            var u = await p.FetchAsync(CancellationToken.None);
+
+            Assert.Equal(ServiceStatus.Ok, u.Status);
+            Assert.Equal("Google AI Pro", u.Plan);
+            Assert.Equal(new[] { "5H", "WK" }, u.Windows.Select(w => w.Label));
+            Assert.Equal(20, u.Windows[0].UsedPercent, 1);
+            Assert.Equal(10, u.Windows[1].UsedPercent, 1);
+            Assert.Equal(new[] { "5H" }, BarRenderer.BarWindows(new ServiceUsage { Tag = "GM", Windows = { new UsageWindow { Label = "5H" }, new UsageWindow { Label = "3P" } } }).Select(w => w.Label));
         }
 
         [Fact]
