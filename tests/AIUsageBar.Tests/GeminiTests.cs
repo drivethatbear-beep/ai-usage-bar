@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -84,6 +85,82 @@ namespace AIUsageBar.Tests
             Assert.Null(AntigravityServer.CsrfFrom(@"C:\Other\language_server.exe", cmd.Replace(exe, @"C:\Other\language_server.exe")));
             Assert.Null(AntigravityServer.CsrfFrom(exe, exe + " --override_ide_name windsurf --csrf_token x"));
             Assert.Null(AntigravityServer.CsrfFrom(exe, exe + " --override_ide_name antigravity"));
+        }
+
+        [Fact]
+        public void Daemon_Hub_File_Gives_Endpoint_Only_For_Matching_Pid_And_Listening_Port()
+        {
+            const string exe = @"C:\Users\u\AppData\Local\Programs\antigravity\resources\bin\language_server.exe";
+            var hubCmd = exe + " --standalone --override_ide_name antigravity --subclient_type hub --override_ide_version 2.34.0 --https_server_port 0 --app_data_dir antigravity --read_host_bridge_token_from_stdin";
+            Assert.True(AntigravityServer.IsAntigravityProcess(exe, hubCmd));
+            Assert.False(AntigravityServer.IsAntigravityProcess(@"C:\Other\language_server.exe", hubCmd));
+            Assert.False(AntigravityServer.IsAntigravityProcess(exe, exe + " --override_ide_name windsurf"));
+            Assert.Equal("antigravity", AntigravityServer.AppDataNameFrom(hubCmd));
+
+            var dir = Path.Combine(Path.GetTempPath(), "aiusagebar-hub-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            try
+            {
+                File.WriteAllText(Path.Combine(dir, "hub_49182.json"),
+                    "{\"pid\":44192,\"httpsPort\":49181,\"httpPort\":49182,\"lsVersion\":\"2.32.2\",\"csrfToken\":\"stale-tok\"}");
+                File.WriteAllText(Path.Combine(dir, "hub_53585.json"),
+                    "{\"pid\":37868,\"httpsPort\":53584,\"httpPort\":53585,\"lsVersion\":\"2.34.0\",\"csrfToken\":\"hub-tok-1\"}");
+
+                var ep = AntigravityServer.EndpointFromDaemon(37868, new[] { 52443, 53584, 53585 }, dir);
+                Assert.NotNull(ep);
+                Assert.Equal("hub-tok-1", ep.Csrf);
+                Assert.Equal(new[] { 53584, 52443 }, ep.Ports); // httpsPort first, plain httpPort skipped
+
+                Assert.Null(AntigravityServer.EndpointFromDaemon(99999, new[] { 53584 }, dir));
+                Assert.Null(AntigravityServer.EndpointFromDaemon(37868, new int[0], dir));
+            }
+            finally
+            {
+                Directory.Delete(dir, recursive: true);
+            }
+        }
+
+        [Fact]
+        public void ParseCli_Extracts_Tightest_Gemini_And_ThirdParty_Buckets()
+        {
+            var cliJson = "{\"status\":\"SUCCESS\",\"command\":{\"name\":\"usage\",\"data\":{\"groups\":[" +
+                "{\"name\":\"Gemini Models\",\"buckets\":[" +
+                "{\"id\":\"gemini-weekly\",\"window\":\"weekly\",\"remaining_fraction\":0.92,\"reset_time\":\"2026-10-18T02:00:32Z\"}," +
+                "{\"id\":\"gemini-5h\",\"window\":\"5h\",\"remaining_fraction\":0.99,\"reset_time\":\"2026-10-12T06:00:00Z\"}]}," +
+                "{\"name\":\"Claude and GPT models\",\"buckets\":[" +
+                "{\"id\":\"3p-weekly\",\"window\":\"weekly\",\"remaining_fraction\":0.85,\"reset_time\":\"2026-10-15T09:35:40Z\"}," +
+                "{\"id\":\"3p-5h\",\"window\":\"5h\",\"remaining_fraction\":1,\"reset_time\":\"2026-10-12T06:00:00Z\"}]}]}}}";
+
+            var u = GeminiParser.ParseCli(cliJson, Now);
+            Assert.NotNull(u);
+            Assert.Equal("GM", u.Tag);
+            Assert.Equal(ServiceStatus.Ok, u.Status);
+            Assert.Equal(2, u.Windows.Count);
+            Assert.Equal("GEM", u.Windows[0].Label);
+            Assert.Equal(8, u.Windows[0].UsedPercent, 1);
+            Assert.Equal(DateTimeOffset.Parse("2026-10-18T02:00:32Z"), u.Windows[0].ResetsAt);
+            Assert.Equal("3P", u.Windows[1].Label);
+            Assert.Equal(15, u.Windows[1].UsedPercent, 1);
+            Assert.Equal(DateTimeOffset.Parse("2026-10-15T09:35:40Z"), u.Windows[1].ResetsAt);
+        }
+
+        [Fact]
+        public async Task Fetch_Falls_Back_To_Agy_Cli_When_Desktop_Server_Not_Running()
+        {
+            var calls = 0;
+            var cliJson = "{\"status\":\"SUCCESS\",\"command\":{\"name\":\"usage\",\"data\":{\"groups\":[" +
+                "{\"name\":\"Gemini Models\",\"buckets\":[{\"id\":\"gemini-5h\",\"remaining_fraction\":0.74,\"reset_time\":\"2026-10-12T05:00:00Z\"}]}]}}}";
+            var h = FakeHandler.Status(HttpStatusCode.OK);
+            var p = new GeminiProvider(() => null, () => true, h, _ => { calls++; return Task.FromResult(cliJson); });
+
+            var first = await p.FetchAsync(CancellationToken.None);
+            var second = await p.FetchAsync(CancellationToken.None);
+
+            Assert.Equal(ServiceStatus.Ok, first.Status);
+            Assert.Equal(26, first.Windows.Single().UsedPercent, 1);
+            Assert.Equal(ServiceStatus.Ok, second.Status);
+            Assert.Equal(1, calls); // cached within CLI interval
+            Assert.Empty(h.Requests);
         }
 
         [Fact]

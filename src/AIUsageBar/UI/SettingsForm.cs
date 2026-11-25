@@ -12,7 +12,7 @@ namespace AIUsageBar.UI
         private readonly CheckBox _codex = new CheckBox { Text = "Codex 표시", AutoSize = true };
         private readonly CheckBox _grok = new CheckBox { Text = "Grok · Cursor 표시 (통합 요금제는 한도 공유)", AutoSize = true };
         private readonly CheckBox _opencode = new CheckBox { Text = "OpenCode Go 표시", AutoSize = true };
-        private readonly CheckBox _gemini = new CheckBox { Text = "Gemini 표시 (Antigravity 실행 중일 때 갱신)", AutoSize = true };
+        private readonly CheckBox _gemini = new CheckBox { Text = "Gemini 표시 (Antigravity · agy)", AutoSize = true };
         private readonly CheckBox _system = new CheckBox { Text = "PC 상태 표시 (CPU · 메모리 · 온도)", AutoSize = true };
         private readonly CheckBox _pin = new CheckBox { Text = "상세 카드를 바탕화면에 띄워두기", AutoSize = true };
         private readonly CheckBox _pinTop = new CheckBox { Text = "바탕화면 카드를 항상 위에 표시", AutoSize = true };

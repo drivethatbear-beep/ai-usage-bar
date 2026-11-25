@@ -16,7 +16,7 @@ Windows 작업표시줄 맨 왼쪽에 **Claude · Codex · Grok·Cursor · Gemin
   - Grok: Grok CLI 사용 기록 (`%USERPROFILE%\.grok\sessions`)
   - Cursor: Cursor 앱 로그인 (`%APPDATA%\Cursor\User\globalStorage\state.vscdb`의 로그인 정보로 cursor.com에 요금제 이름만 물어봄(30분마다), Windows 기본 SQLite로 읽기만 함)
   - OpenCode Go: OpenCode에서 Go 구독 연결 (`OPENCODE_API_KEY`, `%USERPROFILE%\.local\share\opencode\opencode.db` 또는 같은 폴더의 `auth.json`에서 키를 읽기만 함)
-  - Gemini: Google Antigravity 로그인 (Antigravity가 실행 중일 때 갱신)
+  - Gemini: Google Antigravity 데스크톱 앱 또는 `agy` CLI 로그인
 - 로그인되지 않은 서비스는 `--`로 표시되고, 나머지는 정상 동작합니다.
 
 ## 설치 / 제거
@@ -72,8 +72,7 @@ Windows 작업표시줄 맨 왼쪽에 **Claude · Codex · Grok·Cursor · Gemin
 
 - 작업표시줄에는 **Gemini 모델 한도의 남은 %** 하나와 그 리셋 시각만 표시합니다.
 - 상세 카드에는 Gemini 모델 · Claude·GPT 모델(Antigravity 안의 다른 회사 모델) 한도를 따로 보여 줍니다(각 한도는 가장 많이 쓴 모델 기준, Antigravity의 모델 선택 화면과 같은 값).
-- 이 PC에서 실행 중인 Antigravity에게만 물어봅니다(127.0.0.1). 토큰 파일을 읽지 않고, 외부로 직접 접속하지 않습니다.
-- Antigravity가 꺼져 있으면 마지막 값을 흐리게 보여 주고, 켜면 다시 갱신됩니다.
+- 이 PC에서 실행 중인 Antigravity 로컬 서버(`127.0.0.1`, hub 데몬 포함)에 먼저 물어보고, 데스크톱 앱이 꺼져 있으면 로컬 `agy` CLI(`agy -p "/usage" --output-format json`, 토큰 소모 0)로 조회합니다.
 
 ## Grok 표시에 대해
 

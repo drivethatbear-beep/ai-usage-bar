@@ -29,19 +29,63 @@ namespace AIUsageBar.Core
                 foreach (var m in models)
                 {
                     if (!(Json.Get(m, "quotaInfo") is Dictionary<string, object> quota)) continue;
-                    // Protobuf JSON omits zero values: no fraction next to a quota means none is left.
-                    var remaining = Math.Max(0, Math.Min(1, Json.Num(Json.Get(quota, "remainingFraction")) ?? 0));
-                    DateTimeOffset? reset = null;
-                    var text = Json.Str(Json.Get(quota, "resetTime"));
-                    if (text != null && DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var r))
-                        reset = r;
-                    var w = new UsageWindow { UsedPercent = (1 - remaining) * 100, ResetsAt = reset };
+                    var w = WindowFrom(quota, "remainingFraction", "resetTime");
                     if (IsGemini(m)) gemini = Tighter(gemini, w, "GEM");
                     else other = Tighter(other, w, "3P");
                 }
             if (gemini != null) u.Windows.Add(gemini);
             if (other != null) u.Windows.Add(other);
             return u;
+        }
+
+        /// <summary>Maps <c>agy -p "/usage" --output-format json</c> output to a ServiceUsage when desktop Antigravity is closed.</summary>
+        public static ServiceUsage ParseCli(string json, DateTimeOffset now)
+        {
+            Dictionary<string, object> root;
+            try { root = Json.Parse(json) as Dictionary<string, object>; }
+            catch (FormatException) { return null; }
+            if (root == null || Json.Str(Json.Get(root, "status")) != "SUCCESS") return null;
+            if (!(Json.Get(root, "command.data.groups") is List<object> groups)) return null;
+
+            UsageWindow gemini = null, other = null;
+            foreach (var g in groups)
+            {
+                var groupIsGemini = (Json.Str(Json.Get(g, "name")) ?? "").StartsWith("Gemini", StringComparison.OrdinalIgnoreCase);
+                if (!(Json.Get(g, "buckets") is List<object> buckets)) continue;
+                foreach (var b in buckets)
+                {
+                    if (!(b is Dictionary<string, object> bucket)) continue;
+                    var w = WindowFrom(bucket, "remaining_fraction", "reset_time");
+                    var id = Json.Str(Json.Get(bucket, "id")) ?? "";
+                    if (groupIsGemini || id.StartsWith("gemini", StringComparison.OrdinalIgnoreCase))
+                        gemini = Tighter(gemini, w, "GEM");
+                    else
+                        other = Tighter(other, w, "3P");
+                }
+            }
+            if (gemini == null && other == null) return null;
+
+            var u = new ServiceUsage
+            {
+                Service = "Gemini",
+                Tag = "GM",
+                Status = ServiceStatus.Ok,
+                LastSuccess = now,
+            };
+            if (gemini != null) u.Windows.Add(gemini);
+            if (other != null) u.Windows.Add(other);
+            return u;
+        }
+
+        private static UsageWindow WindowFrom(Dictionary<string, object> quota, string fractionKey, string resetKey)
+        {
+            // Protobuf JSON omits zero values: no fraction next to a quota means none is left.
+            var remaining = Math.Max(0, Math.Min(1, Json.Num(Json.Get(quota, fractionKey)) ?? 0));
+            DateTimeOffset? reset = null;
+            var text = Json.Str(Json.Get(quota, resetKey));
+            if (text != null && DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var r))
+                reset = r;
+            return new UsageWindow { UsedPercent = (1 - remaining) * 100, ResetsAt = reset };
         }
 
         private static bool IsGemini(object model)
