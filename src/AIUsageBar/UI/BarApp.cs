@@ -18,6 +18,7 @@ namespace AIUsageBar.UI
 
         private readonly Control _ui = new Control();
         private readonly Dictionary<string, ServiceUsage> _data = new Dictionary<string, ServiceUsage>();
+        private readonly KimiAuth _kimiAuth = new KimiAuth();
         private readonly TaskbarAttacher _attacher = new TaskbarAttacher();
         private readonly Timer _check = new Timer { Interval = 2000 };
         private readonly Timer _blink = new Timer { Interval = 500 };
@@ -163,7 +164,7 @@ namespace AIUsageBar.UI
             if (_settings.ShowGrok) providers.Add(grok = new GrokProvider(null, () => _settings.GrokWeeklyBudgetUsd));
             if (_settings.ShowGemini) providers.Add(new GeminiProvider());
             KimiProvider kimi = null;
-            if (_settings.ShowKimi) providers.Add(kimi = new KimiProvider());
+            if (_settings.ShowKimi) providers.Add(kimi = new KimiProvider(auth: _kimiAuth));
             if (_settings.ShowOpenCode) providers.Add(new OpenCodeProvider());
             _scheduler = new Scheduler(providers, () => _settings.RefreshSeconds);
             _scheduler.Updated += u => _ui.BeginInvoke((Action)(() => OnUpdated(u)));
@@ -375,9 +376,12 @@ namespace AIUsageBar.UI
 
         private void OpenSettings()
         {
-            using (var f = new SettingsForm(_settings))
+            using (var f = new SettingsForm(_settings, _kimiAuth))
             {
-                if (f.ShowDialog() != DialogResult.OK || f.Result == null) return;
+                var ok = f.ShowDialog() == DialogResult.OK && f.Result != null;
+                // The Kimi login is saved as soon as it completes, even if the dialog is then cancelled.
+                if (f.KimiLoginChanged && (!ok || f.Result.ShowKimi == _settings.ShowKimi)) _ = _scheduler.RefreshNowAsync();
+                if (!ok) return;
                 var old = _settings;
                 _settings = f.Result;
                 try

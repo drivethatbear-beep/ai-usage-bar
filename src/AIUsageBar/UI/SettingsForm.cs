@@ -1,6 +1,11 @@
 using System;
+using System.Diagnostics;
 using System.Drawing;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
+using AIUsageBar.Providers;
 
 namespace AIUsageBar.UI
 {
@@ -13,7 +18,7 @@ namespace AIUsageBar.UI
         private readonly CheckBox _grok = new CheckBox { Text = "Grok · Cursor 표시 (통합 요금제는 한도 공유)", AutoSize = true };
         private readonly CheckBox _opencode = new CheckBox { Text = "OpenCode Go 표시", AutoSize = true };
         private readonly CheckBox _gemini = new CheckBox { Text = "Gemini 표시 (Antigravity · agy)", AutoSize = true };
-        private readonly CheckBox _kimi = new CheckBox { Text = "Kimi 표시 (Kimi Code 실행 중일 때 갱신)", AutoSize = true };
+        private readonly CheckBox _kimi = new CheckBox { Text = "Kimi 표시", AutoSize = true };
         private readonly CheckBox _system = new CheckBox { Text = "PC 상태 표시 (CPU · 메모리 · 온도)", AutoSize = true };
         private readonly CheckBox _pin = new CheckBox { Text = "상세 카드를 바탕화면에 띄워두기", AutoSize = true };
         private readonly CheckBox _pinTop = new CheckBox { Text = "바탕화면 카드를 항상 위에 표시", AutoSize = true };
@@ -21,12 +26,20 @@ namespace AIUsageBar.UI
         private readonly Settings _orig;
         private readonly CheckBox _reset = new CheckBox { Text = "작업표시줄에 리셋 시각 표시", AutoSize = true };
         private readonly CheckBox _startup = new CheckBox { Text = "Windows 시작 시 실행", AutoSize = true };
+        private readonly Label _kimiStatus = new Label { AutoSize = true, ForeColor = SystemColors.GrayText, Margin = new Padding(6, 6, 0, 0) };
+        private readonly Button _kimiButton = new Button { AutoSize = true };
+        private readonly KimiAuth _kimiAuth;
+        private CancellationTokenSource _kimiLogin;
 
         public Settings Result { get; private set; }
 
-        public SettingsForm(Settings s)
+        /// <summary>The bar's own Kimi login was added or removed while the dialog was open.</summary>
+        public bool KimiLoginChanged { get; private set; }
+
+        public SettingsForm(Settings s, KimiAuth kimiAuth = null)
         {
             _orig = s;
+            _kimiAuth = kimiAuth;
             Text = "AI Usage Bar 설정";
             Font = new Font("Malgun Gothic", 9f);
             AutoScaleMode = AutoScaleMode.Dpi;
@@ -66,6 +79,17 @@ namespace AIUsageBar.UI
             Row("갱신 주기(초)", _refresh, "60~3600, Claude·Codex 조회 간격");
             Row("바탕화면 카드 크기(%)", _cardScale, "카드 위에서 Ctrl + 휠로도 조절");
             Row("Grok 주간 예산($)", _budget, "구독 한도를 못 읽을 때만 사용, 0이면 금액만 표시");
+            if (_kimiAuth != null)
+            {
+                var kimiCell = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding(0, 4, 0, 4) };
+                kimiCell.Controls.Add(_kimiButton);
+                kimiCell.Controls.Add(_kimiStatus);
+                grid.Controls.Add(new Label { Text = "Kimi 로그인", AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(0, 8, 12, 4) });
+                grid.Controls.Add(kimiCell);
+                _kimiButton.Click += OnKimiButton;
+                FormClosed += (o, e) => _kimiLogin?.Cancel();
+                ShowKimiState();
+            }
             var checks = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, AutoSize = true, Margin = new Padding(0, 8, 0, 0) };
             checks.Controls.AddRange(new Control[] { _claude, _codex, _grok, _gemini, _kimi, _opencode, _system, _reset, _pin, _pinTop, _startup });
             grid.Controls.Add(new Label { Text = "표시", AutoSize = true, Margin = new Padding(0, 10, 12, 4) });
@@ -85,6 +109,66 @@ namespace AIUsageBar.UI
             Controls.Add(root);
 
             save.Click += (o, e) => Result = BuildResult();
+        }
+
+        private void ShowKimiState()
+        {
+            if (_kimiAuth.HasLogin)
+            {
+                _kimiButton.Text = "로그아웃";
+                _kimiStatus.Text = "바 전용 로그인됨 · Kimi Code를 꺼도 계속 갱신";
+            }
+            else
+            {
+                _kimiButton.Text = "로그인…";
+                _kimiStatus.Text = "로그인하면 Kimi Code를 꺼도 계속 갱신 (Kimi Code 로그인은 그대로)";
+            }
+        }
+
+        private async void OnKimiButton(object sender, EventArgs e)
+        {
+            if (_kimiLogin != null)
+            {
+                _kimiLogin.Cancel();
+                return;
+            }
+            if (_kimiAuth.HasLogin)
+            {
+                _kimiAuth.Clear();
+                KimiLoginChanged = true;
+                ShowKimiState();
+                return;
+            }
+
+            var cts = _kimiLogin = new CancellationTokenSource();
+            _kimiButton.Text = "취소";
+            _kimiStatus.Text = "Kimi에 연결하는 중…";
+            try
+            {
+                var dc = await _kimiAuth.StartLoginAsync(cts.Token);
+                _kimiStatus.Text = "브라우저에서 승인해 주세요 · 코드 " + dc.UserCode;
+                try { Process.Start(new ProcessStartInfo(dc.VerificationUri) { UseShellExecute = true }); }
+                catch (Exception ex) when (ex is System.ComponentModel.Win32Exception || ex is InvalidOperationException) { }
+                var done = await _kimiAuth.CompleteLoginAsync(dc, cts.Token);
+                _kimiLogin = null;
+                if (done) KimiLoginChanged = true;
+                if (IsDisposed) return;
+                ShowKimiState();
+                if (!done) _kimiStatus.Text = "로그인하지 못했어요 · 다시 시도해 주세요";
+            }
+            catch (OperationCanceledException)
+            {
+                _kimiLogin = null;
+                if (!IsDisposed) ShowKimiState();
+            }
+            catch (Exception ex) when (ex is HttpRequestException || ex is FormatException)
+            {
+                _kimiLogin = null;
+                Program.Log(ex);
+                if (IsDisposed) return;
+                ShowKimiState();
+                _kimiStatus.Text = "Kimi에 연결하지 못했어요 · 인터넷 연결을 확인해 주세요";
+            }
         }
 
         internal Settings BuildResult() => new Settings

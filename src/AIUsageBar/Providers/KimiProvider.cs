@@ -9,9 +9,10 @@ using AIUsageBar.Core;
 namespace AIUsageBar.Providers
 {
     /// <summary>
-    /// Reads the Kimi Code OAuth token (read-only, never refreshed) and queries the usage endpoint. Kimi Code's
-    /// access tokens live 15 minutes and only Kimi Code refreshes them, so an expired token is not sent: the last
-    /// values stay on screen until Kimi Code runs again and writes a fresh one.
+    /// Queries the Kimi Code usage endpoint. With the bar's own login (<see cref="KimiAuth"/>) the token is refreshed
+    /// by the bar and the usage stays live. Otherwise it reads Kimi Code's OAuth token (read-only, never refreshed):
+    /// those live 15 minutes and only Kimi Code refreshes them, so an expired one is not sent and the last values
+    /// stay on screen until Kimi Code runs again and writes a fresh one.
     /// </summary>
     internal sealed class KimiProvider : IUsageProvider
     {
@@ -20,11 +21,15 @@ namespace AIUsageBar.Providers
         private readonly HttpClient _http;
         private readonly Func<DateTimeOffset> _now;
 
-        public KimiProvider(string homeDir = null, HttpMessageHandler handler = null, Func<DateTimeOffset> now = null)
+        private readonly KimiAuth _auth;
+
+        /// <param name="auth">The bar's own Kimi login; when present it is used first and keeps the usage live.</param>
+        public KimiProvider(string homeDir = null, HttpMessageHandler handler = null, Func<DateTimeOffset> now = null, KimiAuth auth = null)
         {
             CredentialsDir = Path.Combine(homeDir ?? Io.DefaultHome, ".kimi-code", "credentials");
             _http = Io.Client(handler);
             _now = now ?? (() => DateTimeOffset.Now);
+            _auth = auth;
         }
 
         public string Tag => "KM";
@@ -34,6 +39,23 @@ namespace AIUsageBar.Providers
 
         public async Task<ServiceUsage> FetchAsync(CancellationToken ct)
         {
+            if (_auth != null && _auth.HasLogin)
+            {
+                try
+                {
+                    var own = await _auth.AccessTokenAsync(ct).ConfigureAwait(false);
+                    if (!string.IsNullOrEmpty(own)) return await QueryAsync(own, ct).ConfigureAwait(false);
+                }
+                catch (KimiAuth.RevokedException)
+                {
+                    // Login removed; fall back to Kimi Code's token below.
+                }
+                catch (Exception ex) when (ex is HttpRequestException || ex is TaskCanceledException || ex is FormatException)
+                {
+                    return Io.Error("Kimi", Tag, ex);
+                }
+            }
+
             string token = null;
             double? expiresAt = null;
             try
@@ -54,15 +76,19 @@ namespace AIUsageBar.Providers
             if (string.IsNullOrEmpty(token))
                 return new ServiceUsage { Service = "Kimi", Tag = Tag, Status = ServiceStatus.NotInstalled };
 
-            var now = _now();
-            if (expiresAt.HasValue && DateTimeOffset.FromUnixTimeSeconds((long)expiresAt.Value) <= now + ExpirySlack)
+            if (expiresAt.HasValue && DateTimeOffset.FromUnixTimeSeconds((long)expiresAt.Value) <= _now() + ExpirySlack)
                 return new ServiceUsage { Service = "Kimi", Tag = Tag, Status = ServiceStatus.Error, Error = "NOT RUNNING" };
 
+            return await QueryAsync(token, ct).ConfigureAwait(false);
+        }
+
+        private async Task<ServiceUsage> QueryAsync(string token, CancellationToken ct)
+        {
             try
             {
                 var r = await Io.GetAsync(_http, Url, token, null, ct).ConfigureAwait(false);
                 if (r.Status < 200 || r.Status > 299) return Io.Failure("Kimi", Tag, r.Status);
-                return KimiParser.Parse(r.Body, now);
+                return KimiParser.Parse(r.Body, _now());
             }
             catch (Exception ex) when (ex is HttpRequestException || ex is TaskCanceledException || ex is FormatException)
             {

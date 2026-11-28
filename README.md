@@ -17,7 +17,7 @@ Windows 작업표시줄 맨 왼쪽에 **Claude · Codex · Grok·Cursor · Gemin
   - Cursor: Cursor 앱 로그인 (`%APPDATA%\Cursor\User\globalStorage\state.vscdb`의 로그인 정보로 cursor.com에 요금제 이름만 물어봄(30분마다), Windows 기본 SQLite로 읽기만 함)
   - OpenCode Go: OpenCode에서 Go 구독 연결 (`OPENCODE_API_KEY`, `%USERPROFILE%\.local\share\opencode\opencode.db` 또는 같은 폴더의 `auth.json`에서 키를 읽기만 함)
   - Gemini: Google Antigravity 데스크톱 앱 또는 `agy` CLI 로그인
-  - Kimi: Kimi Code 로그인 (`%USERPROFILE%\.kimi-code\credentials`, Kimi Code가 실행 중일 때 갱신)
+  - Kimi: Kimi Code 로그인 (설정의 **Kimi 로그인**을 한 번 해 두면 항상 갱신, 안 하면 `%USERPROFILE%\.kimi-code\credentials`를 읽어 Kimi Code가 실행 중일 때만 갱신)
 - 로그인되지 않은 서비스는 `--`로 표시되고, 나머지는 정상 동작합니다.
 
 ## 설치 / 제거
@@ -78,8 +78,8 @@ Windows 작업표시줄 맨 왼쪽에 **Claude · Codex · Grok·Cursor · Gemin
 ## Kimi 표시에 대해
 
 - Kimi Code의 사용량과 같은 값입니다. 위 막대 = 5시간 한도, 아래 막대 = 월간 전체 한도, 리셋 = 각 한도 초기화 시각
-- Kimi Code가 저장한 로그인 토큰을 읽기만 하며 `api.kimi.ai`에만 보냅니다. 토큰을 갱신하지 않습니다.
-- Kimi Code의 로그인 토큰은 15분마다 Kimi Code가 직접 갱신합니다. 그래서 Kimi Code가 꺼져 있으면 마지막 값을 흐리게 보여 주고, Kimi Code를 켜서 토큰이 갱신되면 바로 다시 조회합니다.
+- **항상 갱신하려면**: 설정 → `Kimi 로그인` → `로그인…`을 누르고 열린 브라우저에서 승인합니다. 바가 자기 로그인(Kimi Code와 별개)을 갖고 15분마다 직접 갱신하므로 Kimi Code를 꺼도 계속 최신 값이 나옵니다. 이 로그인은 `%APPDATA%\AIUsageBar\kimi-auth.dat`에 Windows 사용자 암호화(DPAPI)로 저장되고, `auth.kimi.ai`(갱신)와 `api.kimi.ai`(조회)에만 보냅니다. Kimi Code의 로그인 파일은 건드리지 않습니다. 설정에서 `로그아웃`하면 파일이 지워집니다.
+- 바 전용 로그인이 없으면 Kimi Code가 저장한 로그인 토큰을 읽기만 합니다(갱신하지 않음). 이 토큰은 15분마다 Kimi Code가 직접 갱신하므로, Kimi Code가 꺼져 있으면 마지막 값을 흐리게 보여 주고 Kimi Code를 켜면 바로 다시 조회합니다.
 
 ## Grok 표시에 대해
 
@@ -110,8 +110,8 @@ Windows 작업표시줄 맨 왼쪽에 **Claude · Codex · Grok·Cursor · Gemin
 
 ## 개인정보
 
-- 각 CLI가 저장한 로그인 정보를 **읽기만** 합니다. 토큰을 갱신하거나 수정하지 않습니다.
-- 사용량 조회는 각 서비스의 공식 주소로만 보냅니다: `api.anthropic.com`, `chatgpt.com`, `cursor.com`(요금제 이름만), `api.kimi.ai`, `opencode.ai`. Grok은 로컬 파일과 로컬 Grok CLI만 사용합니다(CLI가 자체 로그인으로 xAI에 조회).
+- 각 CLI가 저장한 로그인 정보를 **읽기만** 합니다. 토큰을 갱신하거나 수정하지 않습니다. 예외는 설정에서 직접 만든 **바 전용 Kimi 로그인** 하나로, 바가 자기 토큰만 갱신합니다(위 Kimi 항목).
+- 사용량 조회는 각 서비스의 공식 주소로만 보냅니다: `api.anthropic.com`, `chatgpt.com`, `cursor.com`(요금제 이름만), `api.kimi.ai`·`auth.kimi.ai`(바 전용 Kimi 로그인), `opencode.ai`. Grok은 로컬 파일과 로컬 Grok CLI만 사용합니다(CLI가 자체 로그인으로 xAI에 조회).
 - 오류 기록: `%APPDATA%\AIUsageBar\error.log`
 
 ## 빌드

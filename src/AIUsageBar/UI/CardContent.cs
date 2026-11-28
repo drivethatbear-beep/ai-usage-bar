@@ -92,7 +92,7 @@ namespace AIUsageBar.UI
                     s.NoticeKind = NoticeKind.Warning;
                     break;
                 case ServiceStatus.Error when u.Error == "NOT RUNNING":
-                    s.Notice = (u.Tag == "KM" ? "Kimi Code" : "Antigravity") + "를 켜면 갱신돼요";
+                    s.Notice = u.Tag == "KM" ? "설정에서 Kimi 로그인하면 항상 갱신돼요" : "Antigravity를 켜면 갱신돼요";
                     s.NoticeKind = NoticeKind.Muted;
                     break;
                 case ServiceStatus.Error:

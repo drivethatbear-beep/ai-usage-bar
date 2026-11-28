@@ -126,11 +126,11 @@ namespace AIUsageBar.Tests
         }
 
         [Fact]
-        public void Card_Names_Kimi_And_Says_To_Open_Kimi_Code()
+        public void Card_Names_Kimi_And_Points_To_Kimi_Login()
         {
             var s = CardContent.Build(new[] { new ServiceUsage { Tag = "KM", Status = ServiceStatus.Error, Error = "NOT RUNNING" } }, Now)[0];
             Assert.Equal("Kimi", s.Name);
-            Assert.Equal("Kimi Code를 켜면 갱신돼요", s.Notice);
+            Assert.Equal("설정에서 Kimi 로그인하면 항상 갱신돼요", s.Notice);
         }
 
         [Fact]

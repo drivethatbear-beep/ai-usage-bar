@@ -100,6 +100,20 @@ namespace AIUsageBar.Providers
             }
         }
 
+        /// <summary>POSTs an application/x-www-form-urlencoded body (OAuth token endpoints).</summary>
+        public static async Task<Response> PostFormAsync(HttpClient client, string url, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string, string>> form, CancellationToken ct)
+        {
+            using (var req = new HttpRequestMessage(HttpMethod.Post, url) { Content = new FormUrlEncodedContent(form) })
+            {
+                req.Headers.Accept.ParseAdd("application/json");
+                using (var resp = await client.SendAsync(req, ct).ConfigureAwait(false))
+                {
+                    var body = resp.Content == null ? "" : await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    return new Response { Status = (int)resp.StatusCode, Body = body };
+                }
+            }
+        }
+
         /// <summary>Maps a non-2xx status to a status-only ServiceUsage.</summary>
         public static ServiceUsage Failure(string service, string tag, int status)
         {
