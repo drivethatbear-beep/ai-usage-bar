@@ -256,6 +256,7 @@ namespace AIUsageBar.UI
                 case "GK": return "G";
                 case "OC": return "Oc";
                 case "GM": return "Ge";
+                case "KM": return "Ki";
                 default: return string.IsNullOrEmpty(tag) ? "?" : tag.Substring(0, 1);
             }
         }

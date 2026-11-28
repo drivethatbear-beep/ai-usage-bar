@@ -38,6 +38,14 @@ namespace AIUsageBar.UI
             // taskbar-thickness to its left.
             if (t.Win11 && t.CenterAligned && t.Horizontal && rebar != IntPtr.Zero && Native.GetWindowRect(rebar, out var rr) && rr.Width > 0)
                 t.IconsLeft = rr.Left - t.Thickness;
+            // Newer Win11 builds (28000) leave the task band zero-width; the hidden "Start" window still sits where
+            // the Start button is drawn.
+            else if (t.Win11 && t.CenterAligned && t.Horizontal)
+            {
+                var start = Native.FindWindowEx(h, IntPtr.Zero, "Start", null);
+                if (start != IntPtr.Zero && Native.GetWindowRect(start, out var sr) && sr.Width > 0 && sr.Left > t.Bounds.Left)
+                    t.IconsLeft = sr.Left;
+            }
             return t;
         }
 
