@@ -119,5 +119,28 @@ namespace AIUsageBar.Tests
             var items = new List<ServiceUsage> { new ServiceUsage { Tag = "CL", Status = ServiceStatus.NotInstalled } };
             Assert.True(new BarRenderer(4) { ShowNames = false }.MeasureBar(items).Width < new BarRenderer(4).MeasureBar(items).Width);
         }
+
+        [Fact]
+        public void Bar_Width_Does_Not_Follow_Pc_Numbers()
+        {
+            var items = new List<ServiceUsage> { new ServiceUsage { Tag = "CL", Status = ServiceStatus.NotInstalled } };
+            var low = new SystemSnapshot { CpuPercent = 3, MemPercent = 9, GpuUtilPercent = 1, GpuTempC = 9, VramUsedGb = 1, VramTotalGb = 20 };
+            var high = new SystemSnapshot { CpuPercent = 100, MemPercent = 100, GpuUtilPercent = 100, GpuTempC = 100, VramUsedGb = 20, VramTotalGb = 20 };
+            var r = new BarRenderer(4);
+            Assert.NotEqual(r.MeasureBar(items, low).Width, r.MeasureBar(items, high).Width);
+            var seen = BarRenderer.Widest(low);
+            Assert.Equal(r.MeasureBar(items, high).Width, r.MeasureBar(items, seen).Width);
+            Assert.Equal(r.MeasureBar(items, seen).Width, r.MeasureBar(items, BarRenderer.Widest(high, seen)).Width);
+        }
+
+        [Fact]
+        public void Widest_Keeps_A_Sensor_That_Blinked_Out()
+        {
+            var withTemp = BarRenderer.Widest(new SystemSnapshot { CpuPercent = 5, MemPercent = 5, CpuTempC = 40 });
+            var later = BarRenderer.Widest(new SystemSnapshot { CpuPercent = 5, MemPercent = 5 }, withTemp);
+            Assert.Equal(100, later.CpuTempC);
+            Assert.Null(later.GpuUtilPercent);
+            Assert.Null(BarRenderer.Widest(null));
+        }
     }
 }

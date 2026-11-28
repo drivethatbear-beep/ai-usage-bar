@@ -52,7 +52,7 @@ namespace AIUsageBar.UI
 
         public Size Measure(IReadOnlyList<ServiceUsage> items)
         {
-            var pc = _app.SystemOrNull();
+            var pc = _app.SystemForLayout();
             if (!Vertical) return Renderer.MeasureBar(items, pc);
             var one = Renderer.MeasureBar(new List<ServiceUsage>(1) { null });
             var n = Math.Max(1, items.Count + (pc != null ? 1 : 0));

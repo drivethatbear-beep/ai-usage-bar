@@ -290,6 +290,29 @@ namespace AIUsageBar.UI
             return Math.Max(gx, vx) - x0;
         }
 
+        /// <summary>
+        /// The PC block at its widest ("100%", "100°") for every reading <paramref name="pc"/> or <paramref name="seen"/>
+        /// has. Sizing and fitting the bar with this keeps its width — and the chosen layout — from jumping each
+        /// time a CPU/GPU number gains or loses a digit or a sensor reading blinks out.
+        /// </summary>
+        internal static SystemSnapshot Widest(SystemSnapshot pc, SystemSnapshot seen = null)
+        {
+            if (pc == null) return seen;
+            bool Has(double? a, double? b) => a.HasValue || b.HasValue;
+            var vram = Has(pc.VramUsedGb, seen?.VramUsedGb) && ((pc.VramTotalGb ?? 0) > 0 || (seen?.VramTotalGb ?? 0) > 0);
+            return new SystemSnapshot
+            {
+                CpuPercent = 100,
+                MemPercent = 100,
+                CpuTempC = Has(pc.CpuTempC, seen?.CpuTempC) ? 100 : (double?)null,
+                GpuUtilPercent = Has(pc.GpuUtilPercent, seen?.GpuUtilPercent) ? 100 : (double?)null,
+                GpuTempC = Has(pc.GpuTempC, seen?.GpuTempC) ? 100 : (double?)null,
+                VramUsedGb = vram ? 1 : (double?)null,
+                VramTotalGb = vram ? 1 : (double?)null,
+                GpuName = pc.GpuName ?? seen?.GpuName,
+            };
+        }
+
         /// <summary>"·52°" after a usage value; orange from 80°, red from 90°. Returns its width (0 without a reading).</summary>
         private float Temp(Graphics g, double? celsius, float x, float mid)
         {

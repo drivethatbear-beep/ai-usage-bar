@@ -26,6 +26,8 @@ namespace AIUsageBar.UI
         private readonly Timer _sys = new Timer { Interval = 2000 };
         private readonly SystemMonitor _monitor = new SystemMonitor();
         private SystemSnapshot _pc;
+        /// <summary>Widest PC block seen so far: the bar is sized and fitted with it so it does not jump.</summary>
+        private SystemSnapshot _pcWidest;
         private readonly DetailPopup _popup = new DetailPopup();
         private readonly DesktopCard _desk = new DesktopCard();
         private readonly ContextMenuStrip _deskMenu = new ContextMenuStrip();
@@ -136,6 +138,9 @@ namespace AIUsageBar.UI
         /// <summary>The latest PC metrics, or null when the PC block is turned off.</summary>
         public SystemSnapshot SystemOrNull() => _settings.ShowSystem ? _pc : null;
 
+        /// <summary>The PC block at its widest, for sizing and fitting the bar (never for drawing).</summary>
+        public SystemSnapshot SystemForLayout() => _settings.ShowSystem && _pc != null ? _pcWidest : null;
+
         private void SampleSystem()
         {
             if (!_settings.ShowSystem) return;
@@ -143,6 +148,7 @@ namespace AIUsageBar.UI
             {
                 var wasNull = _pc == null;
                 _pc = _monitor.Sample();
+                _pcWidest = BarRenderer.Widest(_pc, _pcWidest);
                 if (wasNull) EnsureBar();
                 else Redraw();
                 RefreshPopup();
@@ -214,7 +220,7 @@ namespace AIUsageBar.UI
                 {
                     // Never run into the centered Start button / app icons; re-fitted every 2 s as icons move.
                     var items = VisibleItems();
-                    var pc = SystemOrNull();
+                    var pc = SystemForLayout();
                     var maxWidth = tb.IconsLeft - tb.Bounds.X - TaskbarAttacher.Margin * 3;
                     var fit = BarLayout.Fit(dot, reset, (d, r, n, a) =>
                     {
@@ -393,7 +399,7 @@ namespace AIUsageBar.UI
                 {
                     Program.Log(ex);
                 }
-                if (!_settings.ShowSystem) _pc = null;
+                if (!_settings.ShowSystem) _pc = _pcWidest = null;
                 else if (_pc == null) SampleSystem();
                 if (old.ShowClaude != _settings.ShowClaude || old.ShowCodex != _settings.ShowCodex || old.ShowGrok != _settings.ShowGrok || old.ShowGemini != _settings.ShowGemini || old.ShowKimi != _settings.ShowKimi || old.ShowOpenCode != _settings.ShowOpenCode)
                     StartScheduler();
